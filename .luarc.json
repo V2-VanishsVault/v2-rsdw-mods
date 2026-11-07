@@ -1,13 +1,13 @@
 {
   "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
   "runtime.version": "Lua 5.4",
-  "runtime.path": ["Forgeframe/Scripts/?.lua", "?.lua"],
+  "runtime.path": ["FrameMage/Scripts/?.lua", "?.lua"],
   "workspace.library": [],
   "workspace.ignoreDir": [".git"],
   "diagnostics.globals": [
     "RegisterHook", "RegisterKeyBind", "NotifyOnNewObject", "FindAllOf", "FindFirstOf", "StaticFindObject",
     "StaticConstructObject", "ExecuteInGameThread", "ExecuteInGameThreadWithDelay", "LoopInGameThreadWithDelay",
-    "FName", "FText", "Key", "ModifierKey"
+    "FName", "FText", "Key", "ModifierKey", "ModRef"
   ],
   "diagnostics.disable": ["lowercase-global"]
 }

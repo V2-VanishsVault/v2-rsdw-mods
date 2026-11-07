@@ -1,4 +1,4 @@
-# Installs Forgeframe into the game's UE4SS Mods folder.
+# Installs Frame Mage into the game's UE4SS Mods folder.
 #
 #   powershell -ExecutionPolicy Bypass -File tools\deploy.ps1          copy (what players use)
 #   powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Link    development: junction Scripts\ and Art\
@@ -11,25 +11,25 @@ param(
     [switch]$Link
 )
 $ErrorActionPreference = "Stop"
-$src = (Resolve-Path (Join-Path $PSScriptRoot "..\Forgeframe")).Path
+$src = (Resolve-Path (Join-Path $PSScriptRoot "..\FrameMage")).Path
 $mods = Join-Path $GameDir "RSDragonwilds\Binaries\Win64\ue4ss\Mods"
 if (-not (Test-Path $mods)) { throw "UE4SS Mods folder not found: $mods" }
 if (Get-Process "RSDragonwilds*" -ErrorAction SilentlyContinue) {
     Write-Warning "The game is running; changes load on the next start."
 }
-$dst = Join-Path $mods "Forgeframe"
+$dst = Join-Path $mods "FrameMage"
 New-Item -ItemType Directory -Force $dst | Out-Null
 
+# True for a junction even when its target no longer exists (Test-Path reports a broken junction as missing).
 function Test-Junction($path) {
-    (Test-Path $path) -and ((Get-Item $path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)
+    try { return [bool]([IO.File]::GetAttributes($path) -band [IO.FileAttributes]::ReparsePoint) } catch { return $false }
 }
 
 # Removes a folder. A junction is only unlinked: Remove-Item -Recurse on a junction in Windows PowerShell 5.1
 # deletes the files in its TARGET (here, the repo).
 function Remove-Folder($path) {
-    if (-not (Test-Path $path)) { return }
-    if (Test-Junction $path) { [IO.Directory]::Delete($path, $false) }
-    else { Remove-Item $path -Recurse -Force }
+    if (Test-Junction $path) { [IO.Directory]::Delete($path, $false); return }
+    if (Test-Path $path) { Remove-Item $path -Recurse -Force }
 }
 
 # Copy files from $from to $to that don't exist there yet (never overwrites).
@@ -46,6 +46,25 @@ function Add-Missing($from, $to) {
         }
     }
     return $n
+}
+
+# One-time migration from the mod's old name (Forgeframe): carry the player's data over, then retire the old
+# folder without deleting it: its junctions are unlinked, enabled.txt removed (so it can't load), and it is renamed.
+$legacy = Join-Path $mods "Forgeframe"
+if (Test-Path $legacy) {
+    foreach ($dir in "config", "layouts", "dumps", "share") {
+        $n = Add-Missing (Join-Path $legacy $dir) (Join-Path $dst $dir)
+        if ($n -gt 0) { Write-Host "Migrated $n file(s) from Forgeframe\$dir" }
+    }
+    foreach ($file in "modmenu-settings.txt") {
+        $from = Join-Path $legacy $file
+        if ((Test-Path $from) -and -not (Test-Path (Join-Path $dst $file))) { Copy-Item $from (Join-Path $dst $file) }
+    }
+    foreach ($dir in "Scripts", "Art") { if (Test-Junction (Join-Path $legacy $dir)) { Remove-Folder (Join-Path $legacy $dir) } }
+    Remove-Item (Join-Path $legacy "enabled.txt") -Force -ErrorAction SilentlyContinue
+    $retired = Join-Path $mods ("Forgeframe.migrated-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+    Rename-Item $legacy $retired
+    Write-Host "Old Forgeframe folder retired as $(Split-Path $retired -Leaf) (safe to delete)"
 }
 
 foreach ($dir in "Scripts", "Art") {
@@ -76,9 +95,12 @@ foreach ($dir in "Scripts", "Art") {
     }
 }
 
-foreach ($dir in "config", "layouts", "dumps") {
+foreach ($dir in "config", "layouts", "dumps", "share") {
     Add-Missing (Join-Path $src $dir) (Join-Path $dst $dir) | Out-Null
 }
+
+# Mod Menu page: modmenu.json must sit next to enabled.txt (always replaced; it's generated, not user data)
+Copy-Item (Join-Path $src "modmenu.json") (Join-Path $dst "modmenu.json") -Force
 
 # Enabled via enabled.txt rather than mods.txt: Vortex manages mods.txt and may rewrite it.
 Set-Content (Join-Path $dst "enabled.txt") "" -Encoding ascii

@@ -1,5 +1,7 @@
-Forgeframe/dumps/*
-!Forgeframe/dumps/.keep
-Forgeframe/config/settings.lua
+FrameMage/dumps/*
+FrameMage/share/*
+!FrameMage/share/.keep
+!FrameMage/dumps/.keep
+FrameMage/config/settings.lua
 *.tmp
 *.bad
