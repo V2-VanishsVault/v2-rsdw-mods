@@ -80,12 +80,61 @@ check("CDO is not", not W.isInstanceFullName("WBP_HUD_C /Engine/Transient.Defaul
 
 -- layout.resolve -----------------------------------------------------------------
 local L = require("forgeframe.features.layout")
-local t = L.resolve(nil, 0.8)
-eq("identity x", t.x, 0); eq("identity scale", t.scale, 1); eq("keeps original opacity", t.opacity, 0.8)
-t = L.resolve({ x = 5, y = 6, scale = 2, opacity = 0.5 }, 0.8)
-eq("offset", t.x, 5); eq("scale", t.scale, 2); eq("opacity multiplies", t.opacity, 0.4)
-eq("hidden", L.resolve({ hidden = true, opacity = 1 }, 1).opacity, 0)
-eq("clamped", L.resolve({ opacity = 3 }, 1).opacity, 1)
+local t = L.resolve(nil)
+check("no entry touches nothing", t.translate == nil and t.scale == nil and t.opacity == nil)
+t = L.resolve({ x = 5 })
+check("move only leaves opacity to the game", t.opacity == nil and t.scale == nil)
+eq("move only x", t.translate[1], 5); eq("move only y defaults 0", t.translate[2], 0)
+t = L.resolve({ x = 5, y = 6, scale = 2, opacity = 0.5 })
+eq("scale", t.scale, 2); eq("opacity absolute", t.opacity, 0.5)
+eq("hidden", L.resolve({ hidden = true, opacity = 1 }).opacity, 0)
+eq("clamped", L.resolve({ opacity = 3 }).opacity, 1)
+local r = L.released({ x = 4, opacity = 0.5 }, { x = 8 })
+check("released opacity only", r.opacity and not r.translate and not r.scale)
+r = L.released({ x = 4, scale = 2 }, nil)
+check("released all on reset", r.translate and r.scale and not r.opacity)
+r = L.released({ hidden = true }, { opacity = 0.4 })
+check("hidden -> faded keeps opacity owned", not r.opacity)
+
+-- names.pretty ----------------------------------------------------------------------
+local N0 = require("forgeframe.core.names")
+eq("pretty nested", N0.pretty("WBP_HUD_RootWidget/HUD_Survival/WBP_SurvivalCore_Upkeep_Hydration"), "Survival Core Upkeep Hydration")
+eq("pretty instance", N0.pretty("WBP_HUD/WBP_BuffEntry*"), "Buff Entry")
+eq("pretty acronym", N0.pretty("WBP_HUD/HPBarText"), "HP Bar Text")
+eq("pretty digits", N0.pretty("WBP_HUD/XPProgress2"), "XP Progress 2")
+eq("pretty root", N0.pretty("WBP_HUD_QuestList"), "Quest List")
+
+-- editor pure parts ------------------------------------------------------------------
+local E = require("forgeframe.features.editor")
+eq("banner name only", E.bannerText("WBP_HUD/WBP_QuestTracker", nil), "Quest Tracker")
+eq("banner hidden", E.bannerText("WBP_HUD/Compass", { hidden = true }), "Compass  (hidden)")
+eq("banner nothing", E.bannerText(nil), "Click a widget to select it")
+
+local Geo = require("forgeframe.core.geometry")
+local rr = { left = 10, top = 10, right = 10, bottom = 30 }
+local g = Geo.atLeast(rr, 16)
+eq("atLeast widens empty", g.right - g.left, 16); eq("atLeast centred", g.left, 2); eq("atLeast keeps tall", g.bottom - g.top, 20)
+check("contains", Geo.contains({ left = 0, top = 0, right = 10, bottom = 10 }, 5, 10))
+check("not contains", not Geo.contains({ left = 0, top = 0, right = 10, bottom = 10 }, 11, 5))
+eq("area", Geo.area({ left = 0, top = 0, right = 4, bottom = 5 }), 20)
+
+local F = require("forgeframe.editor.frame")
+local edges, corners = F.pieces({ left = 100, top = 50, right = 200, bottom = 90 }, 1, 3, 12)
+eq("4 edges", #edges, 4); eq("8 corner bars", #corners, 8)
+eq("top edge above", edges[1][2], 49); eq("top edge width", edges[1][3], 100)
+eq("left edge spans corners", edges[3][4], 42)
+eq("corner bracket outside", corners[1][1], 97); eq("corner length", corners[1][3], 12)
+eq("top-right bracket ends at edge+corner", corners[3][1] + corners[3][3], 203)
+local _, tiny = F.pieces({ left = 0, top = 0, right = 4, bottom = 4 }, 1, 3, 12)
+eq("brackets shrink on tiny widgets", tiny[1][3], 5)
+
+local P = require("forgeframe.editor.picker")
+local ordered = P.order({ { area = 500, depth = 1, id = "panel" }, { area = 20, depth = 3, id = "icon" },
+    { area = 20, depth = 5, id = "deep" }, { area = 9000, depth = 0, id = "root" } })
+eq("pick smallest first", ordered[1].id, "deep"); eq("then same-size shallower", ordered[2].id, "icon")
+eq("then panel", ordered[3].id, "panel"); eq("root last", ordered[4].id, "root")
+check("same spot", P.sameSpot({ x = 10, y = 10 }, { x = 14, y = 7 }, 6))
+check("different spot", not P.sameSpot({ x = 10, y = 10 }, { x = 30, y = 10 }, 6))
 
 -- grid.snapDelta -------------------------------------------------------------------
 local G = require("forgeframe.features.grid")

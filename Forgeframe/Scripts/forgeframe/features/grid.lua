@@ -118,32 +118,9 @@ function M.toggleSnap()
     return snapOn
 end
 
--- On-screen rectangle of `w` in grid units (slate units from the viewport's top-left), plus `k`:
--- drawn units per render-translation unit (the parent's accumulated scale). nil if not measurable.
+-- On-screen rectangle of `w` (see core/geometry; the editor frame provides the reference canvas).
 function M.measure(w)
-    if not (host and W.valid(host.uw)) then return nil end
-    local ok, r = pcall(function()
-        local sbl = StaticFindObject("/Script/UMG.Default__SlateBlueprintLibrary")
-        local gg = host.canvas:GetCachedGeometry()
-        local wg = w:GetCachedGeometry()
-        local o = sbl:LocalToAbsolute(gg, { X = 0, Y = 0 })
-        local o1 = sbl:LocalToAbsolute(gg, { X = 1, Y = 1 })
-        local sx, sy = o1.X - o.X, o1.Y - o.Y
-        if not (sx > 0 and sy > 0) then return nil end
-        local size = sbl:GetLocalSize(wg)
-        if not (size.X > 0 and size.Y > 0) then return nil end
-        local tl = sbl:LocalToAbsolute(wg, { X = 0, Y = 0 })
-        local br = sbl:LocalToAbsolute(wg, { X = size.X, Y = size.Y })
-        local unit = sbl:LocalToAbsolute(wg, { X = 1, Y = 0 })
-        return {
-            left = (tl.X - o.X) / sx, top = (tl.Y - o.Y) / sy,
-            right = (br.X - o.X) / sx, bottom = (br.Y - o.Y) / sy,
-            accScale = (unit.X - tl.X) / sx, -- widget's total scale incl. its own render scale
-        }
-    end)
-    if ok and r then return r end
-    if not ok then log.debug("grid measure failed: %s", tostring(r)) end
-    return nil
+    return require("forgeframe.core.geometry").rect(w)
 end
 
 function M.centre()

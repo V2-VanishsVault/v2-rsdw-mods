@@ -44,7 +44,26 @@ return {
         fadeStep = 0.1,
         minScale = 0.2,
         maxScale = 4.0,
-        blinkMs = 300,
+
+        lockInput = true, -- show the mouse cursor and pause game input while the editor is open
+
+        -- selection frame (colour is linear RGB; edges are thin, corner brackets heavier)
+        frameColor = { 1, 1, 1 },
+        frameEdgeAlpha = 0.6,
+        frameEdge = 1,
+        frameCorner = 3,
+        frameCornerLength = 12,
+        frameMinSize = 16, -- empty widgets get at least this big a frame so they can be seen
+        frameMs = 33, -- how often the frame follows the selection
+
+        -- preview of elements that have nothing to show right now
+        ghostOpacity = 0.35, -- elements hidden by your layout show at this opacity while selected
+        previewMaxText = 40, -- empty text fields that get a placeholder label
+
+        -- click-to-pick
+        pickMinArea = 4, -- ignore widgets smaller than this (UI units squared)
+        pickMaxNodes = 6000, -- safety cap on widgets examined per click
+        pickRepeatTolerance = 6, -- clicks this close count as "same spot" and step out to the parent
     },
 
     keys = {
@@ -54,8 +73,11 @@ return {
         nextProfile = "F7",
 
         -- active only while the editor is open
+        pick = "LEFT_MOUSE_BUTTON", -- click to select; click again in the same spot to select its parent
         next = "PAGE_DOWN",
         prev = "PAGE_UP",
+        nextSibling = "CTRL+PAGE_DOWN",
+        prevSibling = "CTRL+PAGE_UP",
         parent = "HOME",
         child = "END",
         left = "LEFT_ARROW",

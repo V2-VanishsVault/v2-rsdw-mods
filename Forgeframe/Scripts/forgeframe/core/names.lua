@@ -26,6 +26,22 @@ function M.section(name)
     return s and (s:sub(1, 1):upper() .. s:sub(2)) or "Other"
 end
 
+-- Pure: a readable name for a layout key, for the editor banner.
+--   "WBP_HUD_RootWidget/HUD_Survival/WBP_SurvivalCore_Upkeep_Hydration" -> "Survival Core Upkeep Hydration"
+--   "WBP_HUD/WBP_BuffEntry*" -> "Buff Entry"      "WBP_HUD/Image_12" -> "Image 12"
+function M.pretty(key)
+    local last = key:match("([^/]+)$") or key
+    last = last:gsub("%*$", ""):gsub("_C$", "")
+    -- common prefixes that say nothing to a player
+    for _, p in ipairs({ "WBP_HUD_", "WBP_", "W_", "HUD_", "UI_", "BP_" }) do
+        if last:sub(1, #p) == p and #last > #p then last = last:sub(#p + 1) break end
+    end
+    last = last:gsub("_", " ")
+    last = last:gsub("(%l)(%u)", "%1 %2"):gsub("(%u)(%u%l)", "%1 %2"):gsub("(%a)(%d)", "%1 %2")
+    last = last:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+    return last ~= "" and last or key
+end
+
 function M.isMaterial(kind)
     return kind ~= nil and kind:find("Material", 1, true) ~= nil
 end

@@ -31,34 +31,54 @@ end
 function M.entry(key) return profile.elements[key] end
 function M.profileName() return ctx.settings.profile end
 
--- Pure: the transform a given entry produces (unit-tested).
-function M.resolve(entry, originalOpacity)
+-- Only what the user changed is enforced: an element that was only moved keeps the game's own opacity
+-- (fades, flashes), and one that was only faded keeps the game's own slide animations.
+
+-- Pure: what applyTo sets for an entry (nil = leave that property to the game). Unit-tested.
+function M.resolve(entry)
     entry = entry or {}
-    local base = originalOpacity or 1
-    local opacity = entry.hidden and 0 or base * (entry.opacity or 1)
-    return {
-        x = entry.x or 0,
-        y = entry.y or 0,
-        scale = entry.scale or 1,
-        opacity = math.max(0, math.min(1, opacity)),
-    }
+    local t = {}
+    if entry.x or entry.y then t.translate = { entry.x or 0, entry.y or 0 } end
+    if entry.scale then t.scale = entry.scale end
+    if entry.hidden then t.opacity = 0
+    elseif entry.opacity then t.opacity = math.max(0, math.min(1, entry.opacity)) end
+    return t
 end
 
-local function originalOpacity(w, full)
+-- Pure: which properties go back to the game's values when an entry changes from `before` to `after`.
+function M.released(before, after)
+    local b, a = M.resolve(before), M.resolve(after)
+    return { translate = b.translate ~= nil and a.translate == nil, scale = b.scale ~= nil and a.scale == nil,
+        opacity = b.opacity ~= nil and a.opacity == nil }
+end
+
+local function captureOpacity(w, full)
     if original[full] == nil then
         local ok, v = pcall(function() return w:GetRenderOpacity() end)
         original[full] = (ok and type(v) == "number") and v or 1
     end
-    return original[full]
 end
 
--- Apply `entry` (or identity when nil) to one widget. opacityMul lets the editor blink the selection.
-function M.applyTo(w, entry, opacityMul)
-    local full = W.fullName(w)
-    local t = M.resolve(entry, originalOpacity(w, full))
-    w:SetRenderTranslation({ X = t.x, Y = t.y })
-    w:SetRenderScale({ X = t.scale, Y = t.scale })
-    w:SetRenderOpacity(t.opacity * (opacityMul or 1))
+function M.applyTo(w, entry)
+    local t = M.resolve(entry)
+    if t.translate then w:SetRenderTranslation({ X = t.translate[1], Y = t.translate[2] }) end
+    if t.scale then w:SetRenderScale({ X = t.scale, Y = t.scale }) end
+    if t.opacity then
+        captureOpacity(w, W.fullName(w)) -- before our first write, so a reset can give it back
+        w:SetRenderOpacity(t.opacity)
+    end
+end
+
+-- Hand properties back to the game (once, when the user removes a change).
+function M.release(w, before, after)
+    local r = M.released(before, after)
+    if r.translate then w:SetRenderTranslation({ X = 0, Y = 0 }) end
+    if r.scale then w:SetRenderScale({ X = 1, Y = 1 }) end
+    if r.opacity then
+        local full = W.fullName(w)
+        w:SetRenderOpacity(original[full] or 1)
+        original[full] = nil
+    end
 end
 
 local function track(w, key)
@@ -87,7 +107,8 @@ end
 
 function M.edit(w, mutate)
     local key = W.key(w)
-    local e = profile.elements[key] or {}
+    local before = ctx.config.deepCopy(profile.elements[key] or {})
+    local e = ctx.config.deepCopy(before)
     mutate(e)
     -- drop no-op values so moved-and-moved-back elements don't leave entries behind
     if e.x and math.abs(e.x) < 1e-3 then e.x = nil end
@@ -95,10 +116,15 @@ function M.edit(w, mutate)
     if next(e) == nil then e = nil end
     profile.elements[key] = e
     rebuildPrefixes()
-    if e then track(w, key) else M.applyTo(w, nil); live[W.fullName(w)] = nil end
+    local full = W.fullName(w)
+    M.release(w, before, e)
+    if e then track(w, key) else live[full] = nil end
     -- other live instances that share the key (list entries) follow
-    for _, rec in pairs(live) do
-        if rec.key == key and W.valid(rec.w) then M.applyTo(rec.w, e) end
+    for f, rec in pairs(live) do
+        if f ~= full and rec.key == key and W.valid(rec.w) then
+            M.release(rec.w, before, e)
+            M.applyTo(rec.w, e)
+        end
     end
     dirtyAt = os.clock()
     ctx.events.emit("layoutchanged", key)
@@ -113,7 +139,7 @@ end
 function M.loadProfile(name)
     -- restore everything to the game's own values before switching
     for full, rec in pairs(live) do
-        if W.valid(rec.w) then pcall(M.applyTo, rec.w, nil) end
+        if W.valid(rec.w) then pcall(M.release, rec.w, profile.elements[rec.key], nil) end
         live[full] = nil
     end
     ctx.settings.profile = name
@@ -146,15 +172,15 @@ function M.init(c)
     -- a level change frees most widgets: forget handles, re-find them as they are recreated
     ctx.events.on("worldchanged", function()
         live, original = {}, {}
-        M.blinkFull = nil
+        M.skipFull = nil
     end)
 
     -- Re-assert transforms: UMG animations may write render opacity/transform every frame.
     ctx.sched.every(ctx.settings.layout.reapplyMs, "layout.reapply", function()
         for full, rec in pairs(live) do
             if W.valid(rec.w) then
-                -- the editor owns the selected widget's opacity while it blinks
-                if full ~= M.blinkFull then M.applyTo(rec.w, profile.elements[rec.key]) end
+                -- the editor owns the selected widget while it previews it
+                if full ~= M.skipFull then M.applyTo(rec.w, profile.elements[rec.key]) end
             else
                 live[full] = nil
                 original[full] = nil

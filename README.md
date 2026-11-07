@@ -29,8 +29,10 @@ Look for `[Forgeframe]` lines in `ue4ss/UE4SS.log`. To isolate a crash, set a fe
 
 | Key | Action |
 |---|---|
-| F9 | Toggle the layout editor |
-| PgDn / PgUp | Next / previous on-screen element |
+| F9 | Toggle the layout editor (shows the mouse cursor and pauses game input while open) |
+| Left click | Select the widget under the cursor. Click the same spot again to select its parent, and so on outward |
+| PgDn / PgUp | Next / previous element, including ones that are currently empty or hidden |
+| Ctrl + PgDn / PgUp | Next / previous sibling (other parts of the same panel) |
 | Home / End | Select parent / first child (reach any widget in the tree) |
 | Arrows | Move. With the grid on, jump to the next spot where an edge sits on a grid line |
 | Shift + Arrows | Big move (grid on: next major line) |
@@ -74,6 +76,11 @@ Remove an entry and reload to restore the original values.
 - **Layout.** Changes use the widget's *render transform* (translation, scale, opacity). These apply after
   layout, so moving an element never reflows its neighbours and works on any panel type. Layouts are saved
   per profile in `layouts/<profile>.lua` and re-applied every 200 ms in case game animations reset them.
+- **Selection.** A frame with corner brackets follows the selected widget. An element with nothing to show
+  right now (boss bar, empty notification) is previewed while selected: shown with its designed default
+  content, with placeholder labels in empty text fields. Everything is put back when you select something else.
+- **Only what you change is enforced.** A moved element keeps the game's own fades and a faded one keeps its
+  slide animations: only the properties you edited are re-applied.
 - **Grid.** It's centred on the screen, with a 16-unit cell and a major line every 4 cells (`grid` in settings).
   Snapping measures the element's real on-screen rectangle (`GetCachedGeometry`), then moves it until its
   nearer edge reaches the next line, so left- and right-anchored elements both line up.
@@ -90,8 +97,9 @@ Remove an entry and reload to restore the original values.
 
 ```
 Forgeframe/Scripts/main.lua               entry; FEATURES list
-Forgeframe/Scripts/forgeframe/core/       log, fs, serialize, config, sched, events, keys, widgets, overlay, names, theme
+Forgeframe/Scripts/forgeframe/core/       log, fs, serialize, config, sched, events, keys, widgets, overlay, names, theme, geometry
 Forgeframe/Scripts/forgeframe/features/   layout, art, materials, grid, editor, inspector  (add new features here)
+Forgeframe/Scripts/forgeframe/editor/     frame, preview, picker (parts of the layout editor)
 tests/run_tests.lua                       unit tests for the engine-independent code (lua tests/run_tests.lua)
 .luarc.json                               Lua Language Server config (Lua 5.4 + UE4SS globals); static check:
                                           lua-language-server --check=. --checklevel=Warning
