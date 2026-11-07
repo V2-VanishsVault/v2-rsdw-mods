@@ -1,0 +1,5 @@
+Forgeframe/dumps/*
+!Forgeframe/dumps/.keep
+Forgeframe/config/settings.lua
+*.tmp
+*.bad
