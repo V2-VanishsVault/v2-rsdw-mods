@@ -1,6 +1,6 @@
 -- Materials: theme animated/shader UI effects by changing their parameters, keeping the animation.
 --
--- Theme file: Art/<skin>/materials.lua (format in core/theme.lua). Parameter names per effect are listed in
+-- Theme file: the theme's materials.lua (Art/themes/<theme>/, else Demi-human's) (format in core/theme.lua). Parameter names per effect are listed in
 -- dumps/materials.txt after a Ctrl+F9 dump.
 --
 -- How it applies:
@@ -25,7 +25,7 @@ local hooksInstalled = false
 local inSet = false
 
 local function themePath()
-    return ctx.dir .. "Art/" .. ctx.settings.skin .. "/materials.lua"
+    return ctx.themes.find("materials.lua") or (ctx.themes.dir() .. "materials.lua")
 end
 
 function M.loadTheme()
@@ -124,7 +124,7 @@ local function applyParams(mid, key, entry)
             if tex then
                 captureOriginal(mid, key, "textures", p); set(mid, "textures", p, tex); now["t:" .. p] = true
             else
-                log.warn("materials.lua: %s.textures.%s: %s.png not found in the skin folder", key, p, file)
+                log.warn("materials.lua: %s.textures.%s: %s.png not found in the theme folder", key, p, file)
             end
         end
     end

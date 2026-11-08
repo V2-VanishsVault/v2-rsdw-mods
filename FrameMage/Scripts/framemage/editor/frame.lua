@@ -1,4 +1,5 @@
--- Selection frame: a thin outline around the selected widget with heavier L-shaped corner brackets.
+-- Selection frame: a thin outline around the selected widget with heavier L-shaped corner brackets, and a gold
+-- title bar (black text, padded) naming it, which is the handle you click and drag to move the widget.
 -- Its full-screen canvas doubles as the geometry reference (core/geometry) while the editor is open.
 local overlay = require("framemage.core.overlay")
 local W = require("framemage.core.widgets")
@@ -29,6 +30,15 @@ function M.pieces(r, edge, corner, len)
     return edges, corners
 end
 
+-- Pure: where the title bar goes for frame rect r: above the top-left corner, or below the frame when there
+-- isn't room above (the top of the screen). Returns x, y. Unit-tested.
+function M.barPosition(r, barHeight, s)
+    local x = r.left - s.frameCorner
+    local above = r.top - s.frameCorner - s.titleGap - barHeight
+    if above >= s.titleMinTop then return x, above end
+    return x, r.bottom + s.frameCorner + s.titleGap
+end
+
 local function bar(h, name, color)
     local img = overlay.new("Image", h.tree, name)
     img:SetColorAndOpacity(color)
@@ -45,8 +55,44 @@ local function build(settings)
     local edges, corners, imgs = {}, {}, {}
     for i = 1, 4 do edges[i], imgs[#imgs + 1] = bar(h, "FM_FrameEdge_" .. h.suffix .. "_" .. i, edgeColor) end
     for i = 1, 8 do corners[i], imgs[#imgs + 1] = bar(h, "FM_FrameCorner_" .. h.suffix .. "_" .. i, cornerColor) end
+    -- title bar: gold plate, black lettering in the game's font
+    local plate = overlay.new("Border", h.tree, "FM_TitleBar_" .. h.suffix)
+    require("framemage.editor.style").titlePlate(plate, h.uw)
+    plate:SetPadding({ Left = settings.titlePadX, Top = settings.titlePadY, Right = settings.titlePadX, Bottom = settings.titlePadY })
+    local label = overlay.new("TextBlock", h.tree, "FM_TitleText_" .. h.suffix)
+    local font = require("framemage.editor.legend").gameFont()
+    if font then
+        pcall(function() label:SetFont({ FontObject = font.FontObject, TypefaceFontName = font.TypefaceFontName, Size = settings.titleFontSize }) end)
+    end
+    label:SetColorAndOpacity({ SpecifiedColor = require("framemage.editor.style").ink(), ColorUseRule = 0 })
+    plate:SetContent(label)
+    local barSlot = h.canvas:AddChildToCanvas(plate)
+    barSlot:SetAutoSize(true)
+    imgs[#imgs + 1] = plate
+    -- stand-in for an element with nothing showing (an empty list, a bar at zero): a faint stone panel saying
+    -- what goes there, so it can still be seen, placed and moved
+    local style = require("framemage.editor.style")
+    local n = 0
+    local function new(cls)
+        n = n + 1
+        return overlay.new(cls, h.tree, "FM_Placeholder_" .. cls .. "_" .. h.suffix .. "_" .. n)
+    end
+    local phText = new("TextBlock")
+    if font then
+        pcall(function() phText:SetFont({ FontObject = font.FontObject, TypefaceFontName = font.TypefaceFontName, Size = 13 }) end)
+    end
+    phText:SetColorAndOpacity({ SpecifiedColor = style.label(), ColorUseRule = 0 })
+    local phBox = new("SizeBox")
+    pcall(function() phBox:SetClipping(1) end)
+    phBox:SetContent(phText)
+    local ph = style.panel(new, phBox, h.uw, { 12, 10, 12, 10 })
+    pcall(function() ph:SetRenderOpacity(0.8) end)
+    local phSlot = h.canvas:AddChildToCanvas(ph)
+    phSlot:SetAutoSize(false)
+    ph:SetVisibility(1)
     -- the canvas must fill the screen to serve as the geometry reference
-    host = { uw = h.uw, canvas = h.canvas, edges = edges, corners = corners, imgs = imgs }
+    host = { uw = h.uw, canvas = h.canvas, edges = edges, corners = corners, imgs = imgs,
+        bar = plate, barSlot = barSlot, barText = label, title = nil, ph = ph, phSlot = phSlot, phText = phText }
     geometry.setReference(h.canvas)
 end
 
@@ -81,9 +127,24 @@ function M.close()
     setVisible(false)
 end
 
--- Draw the frame around rect r (viewport units), or hide the pieces when r is nil.
-function M.place(r, settings)
+-- Draw the frame around rect r (viewport units) with `title` on its bar, or hide the pieces when r is nil.
+-- empty = the element shows nothing right now: a stand-in panel fills r.
+function M.place(r, settings, title, empty)
     if not (host and W.valid(host.uw)) then return end
+    pcall(function()
+        if r and empty then
+            host.phSlot:SetPosition({ X = r.left, Y = r.top })
+            host.phSlot:SetSize({ X = r.right - r.left, Y = r.bottom - r.top })
+            if host.phTitle ~= title then
+                host.phTitle = title
+                host.phText:SetText(FText((title or "This element") .. " appears here when the game shows it"))
+                pcall(function() host.phText:SetAutoWrapText(true) end)
+            end
+            host.ph:SetVisibility(3)
+        else
+            host.ph:SetVisibility(1)
+        end
+    end)
     if not r then showPieces(false) return end
     r = geometry.atLeast(r, settings.frameMinSize)
     local edges, corners = M.pieces(r, settings.frameEdge, settings.frameCorner, settings.frameCornerLength)
@@ -95,7 +156,28 @@ function M.place(r, settings)
         for i, p in ipairs(edges) do put(host.edges[i], p) end
         for i, p in ipairs(corners) do put(host.corners[i], p) end
     end)
+    if title and title ~= host.title then
+        host.title = title
+        pcall(function() host.barText:SetText(FText(title)) end)
+    end
+    local barRect = geometry.rect(host.bar)
+    local barH = (barRect and barRect.bottom > barRect.top) and (barRect.bottom - barRect.top) or settings.titleFontSize + 2 * settings.titlePadY + 6
+    local bx, by = M.barPosition(r, barH, settings)
+    pcall(function() host.barSlot:SetPosition({ X = bx, Y = by }) end)
     showPieces(true)
+end
+
+-- The title bar's on-screen rectangle (for hit-testing the drag handle), or nil.
+function M.barRect()
+    if not (host and W.valid(host.bar) and framesShown) then return nil end
+    return geometry.rect(host.bar)
+end
+
+-- Theme changed: drop the overlay; the next open builds it in the new style.
+function M.restyle()
+    if host and W.valid(host.uw) then pcall(function() host.uw:RemoveFromParent() end) end
+    host = nil
+    framesShown = true
 end
 
 function M.forget()

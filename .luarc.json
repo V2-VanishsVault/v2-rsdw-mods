@@ -7,7 +7,7 @@
   "diagnostics.globals": [
     "RegisterHook", "RegisterKeyBind", "NotifyOnNewObject", "FindAllOf", "FindFirstOf", "StaticFindObject",
     "StaticConstructObject", "ExecuteInGameThread", "ExecuteInGameThreadWithDelay", "LoopInGameThreadWithDelay",
-    "FName", "FText", "Key", "ModifierKey", "ModRef"
+    "FName", "FText", "Key", "ModifierKey", "ModRef", "LoadAsset", "ForEachUObject"
   ],
   "diagnostics.disable": ["lowercase-global"]
 }

@@ -25,25 +25,22 @@ Your `config/`, `layouts/`, `dumps/` and `Art/` in the game folder are never ove
 Look for `[FrameMage]` lines in `ue4ss/UE4SS.log`. To isolate a crash, set a feature to `false` under
 `features = { ... }` in `config/settings.lua` and restart.
 
-## Mod Menu
+## Settings
 
-With [Mod Menu](https://www.nexusmods.com/runescapedragonwilds) installed, Frame Mage has its own page (Esc > MODS >
-Frame Mage):
-- turn the whole mod on or off (live; off hands everything back to the game)
-- choose the layout
-- grid snap and grid size, grid lines, the animated centre lines, the hotkey list, pausing controls while editing
-- rebind every hotkey (applies immediately)
-- share layouts (below)
-
-The page is generated from `features/modmenu.lua` (`lua tools/gen_modmenu.lua`); its values are saved to
-`modmenu-settings.txt`. Without Mod Menu everything is in `config/settings.lua`.
+Press **F4** while the editor is open (F9) for Frame Mage's own Settings panel, drawn in the theme: tabs for Look,
+Vitals, Editor, Celebrations, Keys and Layouts. Click a toggle to flip it; click the left or right half of a value to
+step it back or forward; click a key and press the new one to rebind it (Esc cancels). Everything is saved to
+`config/settings.lua`, which you can also edit by hand (restart to apply). The rows come from `core/options.lua`.
 
 ## Celebrations (replacing the game's widgets)
 
 Frame Mage can hide one of the game's widgets and show its own in its place. The first is the **level-up popup**:
 instead of the game's circle, firework bursts go off around your new level, which zooms in on a golden glow under
 the skill's name and icon. It says "Max level!" when you've maxed a skill, and the game's level-up sound still plays.
-Turn it off in Mod Menu (Celebrations), and press **Ctrl+F8** or Mod Menu's PREVIEW to see it without levelling.
+As the number lands, a **DING!** rings: a bell synthesized live with the game's Modular Synth (a strike at ~1.3 kHz
+with a bell's 2.76x overtone and a 1.6 s ring-out). Volume and on/off are in Settings (Celebrations), and `ding.asset` can point at a
+sound asset to play instead.
+Turn it off in Settings (Celebrations), and press **Ctrl+F8** or the Preview button there to see it without levelling.
 
 How it works: the game's popup is detected when it's created or given new data, its level and skill are read from
 the game's own notification data (`NotificationSkillUpData.Level`, `SkillData.Name` / `MaxLevel`), and the popup is
@@ -58,7 +55,7 @@ their file in `share/`, type its name under "File to import" and press **Import*
 and the old one is kept as `layouts/<layout>.before-import.lua`. Imported files are read as data only, with every
 value checked, so a shared file can't run code.
 
-## Keys (all configurable in Mod Menu or `config/settings.lua`)
+## Keys (all configurable in Settings > Keys or `config/settings.lua`)
 
 While the editor is open, a list of these keys (drawn like the game's own key prompts) shows on the left of the
 screen. Key names are Unreal's (`PageDown`, `LeftBracket`, `LeftMouseButton`); combos take `CTRL+` / `SHIFT+` / `ALT+`.
@@ -66,8 +63,11 @@ screen. Key names are Unreal's (`PageDown`, `LeftBracket`, `LeftMouseButton`); c
 | Key | Action |
 |---|---|
 | F9 | Toggle the layout editor (shows the mouse cursor and pauses game input while open) |
-| Left click | Select the widget under the cursor. Click the same spot again to select its parent, and so on outward |
-| PgDn / PgUp | Next / previous element, including ones that are currently empty or hidden |
+| Left click | Select the widget under the cursor (small parts like key icons are skipped). Click the same spot again to select its parent, and so on outward |
+| Drag the gold title bar | Move the selected widget; it snaps to the grid when you let go (if the grid is on) |
+| Right click | Select the parent |
+| PgDn / PgUp | Next / previous element on screen |
+| H | Also list hidden elements (previewed when selected); press again to drop them |
 | Ctrl + PgDn / PgUp | Next / previous sibling (other parts of the same panel) |
 | Home / End | Select parent / first child (reach any widget in the tree) |
 | Arrows | Move. With the grid on, jump to the next spot where an edge sits on a grid line |
@@ -82,12 +82,41 @@ screen. Key names are Unreal's (`PageDown`, `LeftBracket`, `LeftMouseButton`); c
 | Ctrl+F10 | Reload art |
 | Ctrl+F8 | Preview the level-up celebration |
 
-## Reskinning
+### Controller
+
+Click both sticks to open or close the editor. While it's open: **LB / RB** previous / next element, **A** child,
+**B** parent, **left stick** move (it snaps to the grid when you let go), **D-pad** nudge, **LT / RT** scale,
+**X** hide / show, **Y** grid on / off, **RS** (click) reset. The hotkey list switches to these buttons as soon as you
+use the pad. Buttons are Xbox names; the same positions work on other pads.
+
+## Themes
+
+Frame Mage has four high-fantasy themes, picked in Settings (**Look > Theme**) or with `theme = "..."` in
+`config/settings.lua`:
+
+| Theme | Look | Status |
+|---|---|---|
+| `demihuman` (default, "Demi-human") | moonstone and wispy gold light: High Elf meets Dwarven | Frame Mage's own panels done; game art in progress |
+| `warrior` | | coming soon (uses Demi-human's art meanwhile) |
+| `ranger` | | coming soon |
+| `wizard` | | coming soon |
+
+A theme is a folder, `Art/themes/<theme>/`:
+
+- **`<TextureName>.png`** replaces that game texture everywhere.
+- **`materials.lua`** re-colours animated effects (see below).
+- **`ui/`** holds Frame Mage's own panels, title bars and keycaps (`python tools/make_theme.py` makes Demi-human's).
+- **`theme.lua`** sets colours and sizes for Frame Mage's own panels.
+
+Anything a theme doesn't have comes from `demihuman`, so a new theme can start empty.
+
+## Reskinning game art
 
 1. In game, open the screens you want to reskin and press **Ctrl+F9** on each. `dumps/textures.txt` builds a
-   list of every UI texture name.
-2. Save `Art/<skin>/<TextureName>.png` (match the size shown in `dumps/widgets.txt`).
-3. Press **Ctrl+F10**. Switch skins with `skin = "..."` in `config/settings.lua`.
+   list of every UI texture with its pixel size, the size it's drawn at, whether it's 9-sliced, and where it
+   was first seen.
+2. Save `Art/themes/<theme>/<TextureName>.png` at that size (or the same shape at 2x).
+3. Press **Ctrl+F10**.
 
 To find a texture's original image, browse the game paks with FModel using the `.usmap` in `ue4ss/`.
 
@@ -98,7 +127,7 @@ their parameters instead and the fills and animation keep working:
 
 1. Press **Ctrl+F9** with the effect on screen. `dumps/materials.txt` lists every effect, its parameters and their
    current values, as ready-to-copy entries.
-2. Copy `Art/<skin>/materials.example.lua` to `materials.lua`, paste in the entries you want, and edit the values.
+2. Copy `Art/themes/demihuman/materials.example.lua` to your theme's `materials.lua`, paste in the entries you want, and edit the values.
    Colours can be `"#RRGGBB"`, which is treated as sRGB like a colour picker.
 3. Press **Ctrl+F10**. Add `force = true` for parameters the game animates itself.
 
@@ -113,7 +142,10 @@ Remove an entry and reload to restore the original values.
 - **Layout.** Changes use the widget's *render transform* (translation, scale, opacity). These apply after
   layout, so moving an element never reflows its neighbours and works on any panel type. Layouts are saved
   per profile in `layouts/<profile>.lua` and re-applied every 200 ms in case game animations reset them.
-- **Selection.** A frame with corner brackets follows the selected widget. An element with nothing to show
+- **Mouse.** While the editor is open, a transparent full-screen catcher of Frame Mage's own takes the clicks, and
+  Unreal's own UserWidget mouse events are hooked on it. Reading the button from the player controller didn't work
+  in game, because the game's UI framework (CommonUI) decides whether the game sees a click at all.
+- **Selection.** A frame with corner brackets and a gold title bar (the drag handle) follows the selected widget. An element with nothing to show
   right now (boss bar, empty notification) is previewed while selected: shown with its designed default
   content, with placeholder labels in empty text fields. Everything is put back when you select something else.
 - **Only what you change is enforced.** A moved element keeps the game's own fades and a faded one keeps its
@@ -138,13 +170,12 @@ Remove an entry and reload to restore the original values.
 FrameMage/Scripts/main.lua               entry; FEATURES list
 FrameMage/Scripts/framemage/core/       log, fs, serialize, config, sched, events, keys, widgets, overlay, names, theme, geometry
 FrameMage/Scripts/framemage/features/   layout, art, materials, grid, editor, inspector, share, celebrate,
-                                          replace, modmenu  (add new features here)
+                                          replace, bars  (add new features here)
 FrameMage/Scripts/framemage/editor/     frame, preview, picker, legend, banner (parts of the layout editor)
 tests/run_tests.lua                       unit tests for the engine-independent code (lua tests/run_tests.lua)
 .luarc.json                               Lua Language Server config (Lua 5.4 + UE4SS globals); static check:
                                           lua-language-server --check=. --checklevel=Warning
 tools/deploy.ps1                          install into the game (-Link: live junctions for development)
-tools/gen_modmenu.lua                     regenerate FrameMage/modmenu.json from features/modmenu.lua
 tools/make_icons.py                       regenerate Frame Mage's own UI art (mouse glyphs, keycap, parchment ribbon)
 ```
 

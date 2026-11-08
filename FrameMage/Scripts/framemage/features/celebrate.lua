@@ -5,7 +5,8 @@
 --   text       the skill's name above, "Level up!" (or "Max level!") below, the game's own skill icon on top
 -- Everything is a runtime overlay (no game assets changed); art is Frame Mage's own (Art/_ui/fm_spark.png,
 -- fm_glow.png from tools/make_icons.py). Several level-ups in a row play one after another.
--- The game's level-up sound still plays: only the popup's visuals are replaced.
+-- The game's level-up sound still plays: only the popup's visuals are replaced. A "DING!" (features/ding.lua) plays
+-- on top as the number lands.
 local overlay = require("framemage.core.overlay")
 local W = require("framemage.core.widgets")
 
@@ -218,6 +219,9 @@ local function start(info)
     end
     pcall(function() ui.uw:SetVisibility(3) end)
     playing = { t0 = os.clock(), parts = parts, bursts = bursts }
+    -- DING! as the number lands (features/ding.lua)
+    local ding = ctx.features.ding
+    if ding then ctx.sched.later(math.floor(ctx.settings.ding.delay * 1000), "celebrate.ding", ding.play) end
     return true
 end
 

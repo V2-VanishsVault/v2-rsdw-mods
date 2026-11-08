@@ -6,8 +6,8 @@
 --
 -- To add a feature: create framemage/features/<name>.lua exporting `init(ctx)`, then add its name to FEATURES.
 
-local FEATURES = { "layout", "art", "materials", "grid", "editor", "inspector", "share", "celebrate", "replace",
-    "modmenu" }
+local FEATURES = { "layout", "art", "materials", "grid", "editor", "inspector", "share", "ding", "celebrate", "replace",
+    "bars" }
 
 local function modDir()
     local src = (debug.getinfo(1, "S").source or ""):gsub("^@", "")
@@ -61,7 +61,12 @@ config.save(DIR .. "config/settings.defaults.lua", defaults,
 ctx.saveSettings()
 log.setLevel(ctx.settings.logLevel)
 
--- Master switch (Mod Menu's "Frame Mage on"). Off: every change is handed back to the game live; on: re-applied.
+-- themes (Art/themes/<name>/): game-art replacements and the look of Frame Mage's own panels
+ctx.themes = require("framemage.core.themes")
+ctx.themes.init(ctx)
+require("framemage.editor.style").init(ctx)
+
+-- Master switch (Settings > Look > "Frame Mage on"). Off: every change is handed back to the game live; on: re-applied.
 -- Features opt in with setEnabled(on); hotkeys other than developer ones stop working while off.
 ctx.enabled = ctx.settings.enabled ~= false
 function ctx.setEnabled(on)

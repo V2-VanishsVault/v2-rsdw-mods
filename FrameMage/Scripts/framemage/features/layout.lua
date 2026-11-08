@@ -164,7 +164,7 @@ function M.setEnabled(on)
     if on then W.rescan() else releaseAll() end
 end
 
--- Switch to a named profile (Mod Menu's profile choice).
+-- Switch to a named profile (the Settings panel's Layout choice).
 function M.selectProfile(name)
     if name == ctx.settings.profile then return end
     if dirtyAt then M.save() end

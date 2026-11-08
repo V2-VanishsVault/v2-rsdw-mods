@@ -120,7 +120,347 @@ eq("pretty root", N0.pretty("WBP_HUD_QuestList"), "Quest List")
 local E = require("framemage.features.editor")
 eq("banner name only", E.bannerText("WBP_HUD/WBP_QuestTracker", nil), "Quest Tracker")
 eq("banner hidden", E.bannerText("WBP_HUD/Compass", { hidden = true }), "Compass  (hidden)")
-eq("banner nothing", E.bannerText(nil), "Click a widget to select it")
+eq("banner nothing", E.bannerText(nil), "Drag a gold bar to move it, or click anything to select it")
+
+-- drag bars on every element
+do
+    local HS = { handleMinArea = 900, handleMaxScreenShare = 0.5 }
+    local screen = 1920 * 1080
+    check("handle: normal panel", E.wantsHandle(200 * 80, screen, false, HS))
+    check("handle: tiny piece", not E.wantsHandle(20 * 20, screen, false, HS))
+    check("handle: full-screen container", not E.wantsHandle(screen, screen, false, HS))
+    check("handle: building block", not E.wantsHandle(200 * 80, screen, true, HS))
+
+    local H = require("framemage.editor.handles")
+    local s = { gap = 3, minTop = 6, corner = 3, screenW = 1920, screenH = 1080 }
+    local function item(l, t, r, b) return { rect = { left = l, top = t, right = r, bottom = b }, w = 100, h = 20 } end
+    -- room above: the bar sits above the element's top-left
+    local bars = H.layout({ item(500, 300, 800, 400) }, s)
+    eq("bar above x", bars[1].left, 497)
+    eq("bar above y", bars[1].top, 300 - 3 - 3 - 20)
+    -- at the top of the screen: below instead
+    bars = H.layout({ item(500, 10, 800, 100) }, s)
+    eq("bar below at top", bars[1].top, 100 + 3 + 3)
+    -- two elements at the same spot: the second bar moves below its element
+    bars = H.layout({ item(500, 300, 800, 400), item(510, 300, 700, 380) }, s)
+    check("second bar placed", bars[2] ~= false)
+    check("bars never overlap", not H.overlaps(bars[1], bars[2]))
+    -- no room anywhere: left out
+    local crowd = {}
+    for i = 1, 5 do crowd[i] = item(500, 300, 800, 330) end
+    bars = H.layout(crowd, s)
+    local n, clash = 0, false
+    for i = 1, 5 do
+        if bars[i] then
+            n = n + 1
+            for j = 1, i - 1 do if bars[j] and H.overlaps(bars[i], bars[j]) then clash = true end end
+        end
+    end
+    check("crowded: some bars left out", n < 5 and n >= 1)
+    check("crowded: none overlap", not clash)
+    -- kept on screen at the right edge
+    bars = H.layout({ item(1900, 300, 1920, 400) }, s)
+    eq("bar kept on screen", bars[1].right, 1920)
+end
+
+-- layout measurement (FGeometry can't be read from Lua, so positions are computed from layout data)
+do
+    local MS = require("framemage.core.measure")
+    local P = MS.makeRect(0, 0, 1920, 1080)
+    local function near(name, a, b) check(name, math.abs(a - b) < 1e-6, string.format("got %s, want %s", tostring(a), tostring(b))) end
+    -- canvas: anchored top-right, aligned by its right edge, auto-sized
+    local ld = { Offsets = { Left = -20, Top = 30, Right = 0, Bottom = 0 },
+        Anchors = { Minimum = { X = 1, Y = 0 }, Maximum = { X = 1, Y = 0 } }, Alignment = { X = 1, Y = 0 } }
+    local r = MS.canvas(P, ld, true, 200, 50)
+    near("canvas top-right left", r.left, 1920 - 20 - 200)
+    near("canvas top-right top", r.top, 30)
+    near("canvas top-right right", r.right, 1900)
+    -- canvas: fixed size from offsets (not auto), centred
+    ld = { Offsets = { Left = 0, Top = 0, Right = 300, Bottom = 100 },
+        Anchors = { Minimum = { X = 0.5, Y = 0.5 }, Maximum = { X = 0.5, Y = 0.5 } }, Alignment = { X = 0.5, Y = 0.5 } }
+    r = MS.canvas(P, ld, false, 10, 10)
+    near("canvas centred left", r.left, 960 - 150)
+    near("canvas centred bottom", r.bottom, 540 + 50)
+    -- canvas: stretched across the bottom with margins
+    ld = { Offsets = { Left = 10, Top = -80, Right = 10, Bottom = 60 },
+        Anchors = { Minimum = { X = 0, Y = 1 }, Maximum = { X = 1, Y = 1 } }, Alignment = { X = 0, Y = 0 } }
+    r = MS.canvas(P, ld, false, 0, 0)
+    near("canvas stretched left", r.left, 10)
+    near("canvas stretched right", r.right, 1910)
+    near("canvas stretched top", r.top, 1000)
+    -- overlay-style alignment with padding
+    r = MS.aligned(P, { Left = 5, Top = 5, Right = 5, Bottom = 5 }, 3, 3, 100, 40)
+    near("aligned bottom-right", r.right, 1915)
+    near("aligned bottom-right top", r.top, 1075 - 40)
+    r = MS.aligned(P, nil, 0, 0, 100, 40)
+    near("aligned fill", r.right, 1920)
+    -- vertical box: two auto rows then a fill row
+    local pad0 = { Left = 0, Top = 0, Right = 0, Bottom = 0 }
+    local items = {
+        { dw = 100, dh = 20, pad = pad0, h = 1, v = 0, fill = false, value = 1 },
+        { collapsed = true, dw = 100, dh = 999, pad = pad0, h = 1, v = 0, fill = false, value = 1 },
+        { dw = 50, dh = 30, pad = { Left = 0, Top = 4, Right = 0, Bottom = 0 }, h = 1, v = 0, fill = false, value = 1 },
+        { dw = 10, dh = 10, pad = pad0, h = 0, v = 0, fill = true, value = 1 },
+    }
+    local box = MS.makeRect(100, 200, 300, 400)
+    r = MS.box(box, items, 3, true)
+    near("vbox third top (collapsed one takes no space)", r.top, 200 + 20 + 4)
+    near("vbox third left aligned", r.right, 150)
+    r = MS.box(box, items, 4, true)
+    near("vbox fill takes the rest", r.bottom, 600)
+    near("vbox fill top", r.top, 254)
+    -- horizontal box
+    r = MS.box(box, { { dw = 40, dh = 10, pad = pad0, h = 0, v = 2, fill = false, value = 1 },
+        { dw = 60, dh = 10, pad = pad0, h = 0, v = 2, fill = false, value = 1 } }, 2, false)
+    near("hbox second left", r.left, 140)
+    near("hbox centred vertically", r.top, 200 + 195)
+    -- uniform grid
+    r = MS.uniformGrid(MS.makeRect(0, 0, 300, 200), { { row = 0, col = 0, h = 0, v = 0, dw = 1, dh = 1 },
+        { row = 1, col = 2, h = 0, v = 0, dw = 1, dh = 1 } }, 2)
+    near("uniform grid cell left", r.left, 200)
+    near("uniform grid cell top", r.top, 100)
+    -- render transform: translation and scale about the centre, composed with a parent's
+    local L = MS.makeRect(100, 100, 200, 100)
+    local T = MS.renderAffine(L, { Translation = { X = 30, Y = -10 }, Scale = { X = 2, Y = 2 } }, { X = 0.5, Y = 0.5 })
+    r = MS.apply(T, L)
+    near("transform left", r.left, 0 + 30)
+    near("transform top", r.top, 50 - 10)
+    near("transform scale", r.accScale, 2)
+    local parentT = MS.renderAffine(MS.makeRect(0, 0, 1920, 1080), { Translation = { X = 5, Y = 0 }, Scale = { X = 1, Y = 1 } }, nil)
+    r = MS.apply(MS.compose(parentT, T), L)
+    near("parent translation carries", r.left, 35)
+end
+
+-- themes
+do
+    local TH = require("framemage.core.themes")
+    local o = TH.searchOrder("wizard")
+    eq("theme search: own first", o[1], "wizard"); eq("theme search: then demihuman", o[2], "demihuman")
+    eq("theme search: demihuman alone", #TH.searchOrder("demihuman"), 1)
+    eq("old theme name still works", TH.canonical("general"), "demihuman")
+    check("old theme name is known", TH.known("general"))
+    check("theme known", TH.known("ranger")); check("theme unknown", not TH.known("default"))
+    local m = TH.merge({ gold = { 1, 0, 0 }, panelPad = { 1, 2, 3, 4 }, nested = { a = 1, b = 2 } },
+        { gold = { 0, 1, 0 }, nested = { b = 3 } })
+    eq("merge replaces colour arrays", m.gold[2], 1); eq("merge keeps untouched", m.panelPad[4], 4)
+    eq("merge deep keeps", m.nested.a, 1); eq("merge deep overrides", m.nested.b, 3)
+    eq("builtin has every colour", type(TH.BUILTIN.ink), "table")
+    local ST = require("framemage.editor.style")
+    local b = ST.brushSpec("tex", "box", 128, 32, { 0.2, 0.3 })
+    eq("box brush draws as box", b.DrawAs, 1); eq("box brush h margin", b.Margin.Left, 0.2); eq("box brush v margin", b.Margin.Top, 0.3)
+    local t = ST.brushSpec("tex", "tile", 128, 128)
+    eq("tile brush draws as image", t.DrawAs, 3); eq("tile brush tiles both ways", t.Tiling, 3)
+    eq("box brush single margin", ST.brushSpec("tex", "box", 64, 64, 0.25).Margin.Bottom, 0.25)
+    eq("stone: moonstone is the default tile", ST.stoneFile("moonstone"), "panel_stone.png")
+    eq("stone: slate", ST.stoneFile("slate"), "panel_stone_slate.png")
+    eq("stone: marble", ST.stoneFile("marble"), "panel_stone_marble.png")
+    eq("stone: unknown falls back", ST.stoneFile("granite"), "panel_stone.png")
+    eq("stone: none falls back", ST.stoneFile(nil), "panel_stone.png")
+end
+
+-- texture dump details
+do
+    local A = require("framemage.features.art")
+    eq("size text", A.sizeText(255.6, 64), "256x64"); eq("size text bad", A.sizeText(0, 4), nil)
+    local I = require("framemage.features.inspector")
+    local line = I.textureLine(false, "T_Bar_Bg", { count = 3, size = "256x32", drawn = "128x16", drawAs = "box", where = "WBP_HUD/Bars" })
+    check("texture line has size", line:find("size=256x32", 1, true) ~= nil, line)
+    check("texture line has drawn", line:find("drawn=128x16", 1, true) ~= nil, line)
+    check("texture line marks 9-slice", line:find("  box", 1, true) ~= nil, line)
+    check("texture line has where", line:find("where=WBP_HUD/Bars", 1, true) ~= nil, line)
+    check("plain image not marked", not I.textureLine(true, "X", { count = 1, drawAs = "image" }):find("image", 1, true))
+end
+
+-- what counts as one movable element
+do
+    local U = require("framemage.editor.units")
+    eq("draws itself: one unit (compass + markers)", U.verdict({ visuals = 3, lists = { 1 }, children = { 1 } }), "unit")
+    eq("wraps one list: one unit (hotbar)", U.verdict({ visuals = 0, lists = { 1 }, children = {} }), "unit")
+    eq("several lists: container (key hints + shortcuts)", U.verdict({ visuals = 0, lists = { 1, 2 }, children = {} }), "container")
+    eq("wraps sub-elements: container (inventory frame)", U.verdict({ visuals = 0, lists = {}, children = { 1 } }), "container")
+    eq("list plus sub-element: container", U.verdict({ visuals = 0, lists = { 1 }, children = { 1 } }), "container")
+    eq("nothing showing: empty", U.verdict({ visuals = 0, lists = {}, children = {} }), "empty")
+    check("designer name kept", U.meaningfulName("GameInputs"))
+    check("designer name kept 2", U.meaningfulName("SlotGridContainer"))
+    check("default name dropped", not U.meaningfulName("HorizontalBox_436"))
+    check("default name dropped 2", not U.meaningfulName("Overlay_1"))
+    check("bare class name dropped", not U.meaningfulName("VerticalBox"))
+    check("instance name dropped", not U.meaningfulName("WBP_Slot_C_2147445737"))
+    check("list view recognised", U.isListView("ListView"))
+    check("common list view recognised", U.isListView("CommonListView"))
+    check("tile view recognised", U.isListView("CommonTileView"))
+    check("plain box is not a list view", not U.isListView("VerticalBox"))
+    do -- vitals rows: the rings (and their drop shadows) never touch the ring below
+        local b = require("framemage.defaults").bars
+        check("vitals rings keep a gap", b.rowPitch - b.ringSize - b.shadowOffsetY >= 4,
+            ("rowPitch %d, ringSize %d"):format(b.rowPitch, b.ringSize))
+    end
+    check("common switcher recognised", U.isSwitcher("CommonAnimatedSwitcher"))
+    check("widget switcher recognised", U.isSwitcher("WidgetSwitcher"))
+    check("overlay is not a switcher", not U.isSwitcher("Overlay"))
+    -- the world key legend: key hints (a grid under a size box) and menu shortcuts (a row), side by side
+    local hints = { "Overlay_0", "VerticalBox_57", "SizeBox_0", "GameInputs" }
+    local shortcuts = { "Overlay_0", "VerticalBox_57", "HorizontalBox_436" }
+    local gb = U.groupByBranch({ hints, shortcuts })
+    eq("hints and shortcuts: two groups", #gb, 2)
+    eq("hints alone", gb[1][1], 1); eq("shortcuts alone", gb[2][1], 2)
+    local one = U.groupByBranch({ shortcuts })
+    eq("one piece (hints hidden): one group", #one, 1)
+    local three = U.groupByBranch({ { "A", "B", "X" }, { "A", "B", "Y", "Z" }, { "A", "B", "X", "Q" } })
+    eq("grouped by branch below shared node", #three, 2)
+    eq("same branch together", #three[1], 2)
+    local nested = U.groupByBranch({ { "A", "B" }, { "A", "B", "C" } })
+    eq("a piece that is the shared node stands alone", #nested, 2)
+    eq("no pieces: no groups", #U.groupByBranch({}), 0)
+    check("vitals frame is minor: split", U.ownIsMinor(1200, 30000, 4))
+    check("compass strip is major: whole", not U.ownIsMinor(18000, 8000, 5))
+    check("one child: never split here", not U.ownIsMinor(10, 30000, 1))
+    local function R(l, t, r, b) return { left = l, top = t, right = r, bottom = b } end
+    -- survival circles far left, the bars and their shadow together in the middle
+    local cl = U.cluster({ R(30, 480, 130, 530), R(900, 480, 1080, 520), R(895, 470, 1090, 530), R(950, 440, 1010, 470) }, 48)
+    eq("far-apart parts: two groups", #cl, 2)
+    eq("left group alone", #cl[1], 1)
+    eq("middle group together", #cl[2], 3)
+    eq("touching parts: one group", #U.cluster({ R(0, 0, 100, 20), R(0, 30, 100, 50), R(110, 0, 200, 50) }, 48), 1)
+end
+
+-- element names that tell elements apart
+do
+    local N = require("framemage.core.names")
+    local t = N.titles({
+        "WBP_HUD_Notifications/PlayerUpkeeps/NotificationQueueWidget",
+        "WBP_HUD_Notifications/ItemPickups/NotificationQueueWidget",
+        "WBP_HUD_Compass",
+        "WBP_Hotbar/Slot",
+        "WBP_Spellbar/Slot",
+    })
+    eq("generic name gives way to parent", t[1], "Player Upkeeps")
+    eq("generic name gives way to parent 2", t[2], "Item Pickups")
+    eq("plain name kept", t[3], "Compass")
+    eq("clashing names get parent in front", t[4], "Hotbar - Slot")
+    eq("clashing names get parent in front 2", t[5], "Spellbar - Slot")
+end
+
+-- progress-bar style
+do
+    local B = require("framemage.features.bars")
+    check("health bar class", B.isBarClass("WBP_HUD_Vitals_HealthBar_C"))
+    check("stamina bar class", B.isBarClass("WBP_HUD_Vitals_StaminaBar_C"))
+    check("other widget not a bar", not B.isBarClass("WBP_HUD_PlayerVitalsBars_C"))
+    check("enemy bar left alone", not B.isBarClass("WBP_AI_Healthbar_C"))
+    check("our overlay recognised", B.isOurs("FM_Bevel_3"))
+    check("game widget not ours", not B.isOurs("ProgressBarImage"))
+    eq("bevel art", B.artFor("bevel"), "ui/bar_bevel.png")
+    eq("facet art", B.artFor("facet"), "ui/bar_facet.png")
+    eq("flat has no overlay", B.artFor("flat"), nil)
+    check("ring: stamina icon", B.isIcon("StaminaIcon"))
+    check("ring: health icon", B.isIcon("HealthImage"))
+    check("ring: special icon", B.isIcon("SpecialAttackImage"))
+    check("ring: other images untouched", not B.isIcon("ProgressBarImage"))
+    check("ring box recognised", B.isRingBox("FM_RingBox_4"))
+    check("game panel not a ring box", not B.isRingBox("HorizontalBox_0"))
+    local top, bottom = B.rowPadding(38, 46, 0, 0)
+    eq("short bar: padded up to the pitch (top)", top, 4); eq("short bar: padded (bottom)", bottom, 4)
+    top, bottom = B.rowPadding(56, 46, 0, 0)
+    eq("tall bar: pulled in to the pitch", top, -5); eq("tall bar: pulled in (bottom)", bottom, -5)
+    top, bottom = B.rowPadding(40, 46, 2, 4)
+    eq("game padding kept, difference shared (top)", top, 2); eq("difference shared (bottom)", bottom, 4)
+    eq("row is exactly the pitch", 40 + top + bottom, 46)
+    local c, m = B.parseValue("200 / 200")
+    eq("value: current", c, 200); eq("value: max", m, 200)
+    c, m = B.parseValue("4/100")
+    eq("value: no spaces", c, 4); eq("value: no spaces max", m, 100)
+    eq("value: not a value", B.parseValue("Health"), nil)
+    check("full: equal", B.isFull(100, 100))
+    check("not full: less", not B.isFull(45, 100))
+    check("full: no text (stamina hides it when full)", B.isFull(nil, nil))
+    check("point box recognised", B.isTip("FM_Tip_2"))
+    eq("point shading: facet", B.tipArt("facet"), "ui/bar_tip_facet.png")
+    eq("point shading: flat has none", B.tipArt("flat"), nil)
+    check("outline recognised", B.isOutline("FM_Outline_7"))
+    check("upkeep widget recognised", B.isUpkeepClass("WBP_SurvivalCore_Upkeep_C"))
+    eq("upkeep: the divider is hideable", B.hideable("WBP_SurvivalCore_Upkeep_C")[1].name, "UpkeepBuffDivider")
+    eq("input legend: the key hints are hideable", B.hideable("WBP_InputLegend_World_C")[1].name, "GameInputs")
+    eq("other widgets: nothing hideable", #B.hideable("WBP_HUD_Compass_C"), 0)
+    local g = B.durabilityColour(1)
+    check("durability: green at 100%", g.G > g.R and g.G > 0.5)
+    local y = B.durabilityColour(0.75)
+    check("durability: yellow at 75%", y.R > 0.9 and y.G > 0.7)
+    local o = B.durabilityColour(0.5)
+    check("durability: orange at 50%", o.R > 0.9 and o.G > 0.3 and o.G < 0.5)
+    local r = B.durabilityColour(0.1)
+    check("durability: red at 25% and below", r.R > 0.8 and r.G < 0.1)
+    eq("durability: 76% is green", B.durabilityColour(0.76).G, g.G)
+    eq("durability: 51% is yellow", B.durabilityColour(0.51).G, y.G)
+    eq("durability: 26% is orange", B.durabilityColour(0.26).G, o.G)
+    eq("durability: 25% is red", B.durabilityColour(0.25).G, r.G)
+    eq("durability: 0% is red", B.durabilityColour(0).G, r.G)
+    check("game image not an outline", not B.isOutline("ProgressBarImage"))
+    eq("bar height: taller then 75%", B.barHeight(26, 6, 0.75), 24)
+    eq("bar height: no scale", B.barHeight(26, 6, nil), 32)
+    eq("shaped facet body", B.overlayArt("facet", true), "ui/bar_facet_body.png")
+    eq("shaped bevel body", B.overlayArt("bevel", true), "ui/bar_bevel_body.png")
+    eq("plain facet art", B.overlayArt("facet", false), "ui/bar_facet.png")
+    eq("flat has no overlay, tapered or not", B.overlayArt("flat", true), nil)
+    eq("pointed end art", B.endArt("facet", true).outline, "ui/bar_tip_outline.png")
+    eq("flat end art", B.endArt("facet", false).outline, "ui/bar_end_outline.png")
+    eq("flat end shading", B.endArt("bevel", false).shade, "ui/bar_end_bevel.png")
+    eq("flat style end: no shading", B.endArt("flat", false).shade, nil)
+    eq("point length", B.endWidth({ taperWidth = 16, endWidth = 3 }, true), 16)
+    local st = B.tipStrips(4, true)
+    eq("tip strips: count", #st, 4)
+    check("tip strips: top strip short", math.abs(st[1].w - 0.25) < 1e-9)
+    check("tip strips: middle strips long", math.abs(st[2].w - 0.75) < 1e-9)
+    check("tip strips: symmetric", math.abs(st[4].w - st[1].w) < 1e-9)
+    eq("tip strips: bands cover the height", st[4].v1, 1)
+    eq("flat end: one full strip", B.tipStrips(9, false)[1].w, 1)
+    eq("flat end length", B.endWidth({ taperWidth = 16, endWidth = 3 }, false), 3)
+end
+
+-- progress-bar style
+do
+    local B = require("framemage.features.bars")
+    check("health bar class", B.isBarClass("WBP_HUD_Vitals_HealthBar_C"))
+    check("stamina bar class", B.isBarClass("WBP_HUD_Vitals_StaminaBar_C"))
+    check("other widget not a bar", not B.isBarClass("WBP_HUD_PlayerVitalsBars_C"))
+    check("enemy bar left alone", not B.isBarClass("WBP_AI_Healthbar_C"))
+    check("our overlay recognised", B.isOurs("FM_Bevel_3"))
+    check("game widget not ours", not B.isOurs("ProgressBarImage"))
+end
+
+-- API dump filter
+do
+    local I = require("framemage.features.inspector")
+    check("api: hotbar class", I.wantsApi("QuickAccessBarBase"))
+    check("api: spell component", I.wantsApi("SpellcastingComponent"))
+    check("api: inventory component", I.wantsApi("InventoryComponent"))
+    check("api: unrelated class skipped", not I.wantsApi("WBP_HUD_Compass_C"))
+    check("api: workbench", I.wantsApi("CraftingStationComponent"))
+    check("api: recipes", I.wantsApi("RecipeSubsystem"))
+    check("api: loot", I.wantsApi("LootDropComponent"))
+    check("api: carry weight", I.wantsApi("MaxCarryWeightAttribute"))
+    eq("api: module from a class path", I.moduleOf("/Script/Dominion.InventoryComponent"), "Dominion")
+    eq("api: no module in a game path", I.moduleOf("/Game/UI/WBP_Thing.WBP_Thing_C"), nil)
+    local okL, list = pcall(require, "framemage.data.api_classes")
+    check("api: class list loads", okL and type(list) == "table" and #list > 100)
+    check("api: class default object skipped", not I.wantsApi("Default__InventoryComponent"))
+end
+
+-- hidden-elements panel
+do
+    local HP = require("framemage.editor.hidden")
+    eq("hidden offset clamps low", HP.clampOffset(-3, 40, 14), 0)
+    eq("hidden offset clamps high", HP.clampOffset(99, 40, 14), 26)
+    eq("hidden offset short list", HP.clampOffset(5, 6, 14), 0)
+    local t = HP.uniqueTitles({ "Quest Tracker", "Map", "Quest Tracker", "Quest Tracker" })
+    eq("unique 1", t[1], "Quest Tracker")
+    eq("unique 2", t[3], "Quest Tracker (2)")
+    eq("unique 3", t[4], "Quest Tracker (3)")
+    eq("unique other", t[2], "Map")
+    eq("range text", HP.rangeText(14, 40, 14), "15-28 of 40")
+    eq("range text end", HP.rangeText(26, 40, 14), "27-40 of 40")
+    eq("range text empty", HP.rangeText(0, 0, 14), "Nothing hidden right now")
+end
 
 local Geo = require("framemage.core.geometry")
 local rr = { left = 10, top = 10, right = 10, bottom = 30 }
@@ -253,18 +593,53 @@ local cc = Lg.caps("CTRL+PageDown")
 eq("caps modifier first", cc[1].text, "Ctrl"); eq("caps key second", cc[2].text, "PgDn")
 local defaultsT = require("framemage.defaults")
 local rows = Lg.rows(function(s) return defaultsT.keys[s] end, defaultsT.keys.bigModifier)
-local labels = {}
-for _, r in ipairs(rows) do labels[#labels + 1] = r.label end
-local joined = table.concat(labels, "|")
-check("legend has move row with Arrows", joined:find("Move|Move further", 1, true) ~= nil, joined)
-check("legend excludes dump", not joined:find("Dump", 1, true))
-eq("legend select row is mouse", rows[1].groups[1][1].mouse, "left")
-local rebound = Lg.rows(function(s) if s == "left" then return "A" end return defaultsT.keys[s] end, "SHIFT")
-local foundA = false
-for _, r in ipairs(rebound) do
-    if r.label == "Move" then for _, g in ipairs(r.groups) do if g[1].text == "A" then foundA = true end end end
+local function find(list, label)
+    for _, r in ipairs(list) do if r.label == label then return r end end
 end
-check("rebound arrow shown per key", foundA)
+local labels, headers = {}, {}
+for _, r in ipairs(rows) do
+    if r.header then headers[#headers + 1] = r.header else labels[#labels + 1] = r.label end
+end
+local joined = table.concat(labels, "|")
+eq("legend sections", table.concat(headers, ","), "Select,Move,Change,Editor")
+eq("legend starts with a heading", rows[1].header, "Select")
+eq("legend select row is mouse", rows[2].alts[1][1].mouse, "left")
+check("legend excludes dump", not joined:find("Dump", 1, true))
+local nudgeRow = find(rows, "Nudge  (hold Shift: further)")
+check("arrows merged into one row", nudgeRow ~= nil, joined)
+eq("arrows cap", nudgeRow.alts[1][1].text, "Arrows")
+local sib = find(rows, "Neighbouring part")
+eq("shared Ctrl shown once", #sib.prefix, 1); eq("shared prefix is Ctrl", sib.prefix[1].text, "Ctrl")
+eq("then PgUp / PgDn", sib.alts[1][1].text, "PgUp"); eq("alt 2", sib.alts[2][1].text, "PgDn")
+local pn = find(rows, "Previous / next")
+eq("no prefix without modifiers", #pn.prefix, 0)
+local pre, alt = Lg.collapse({ { { text = "Ctrl" }, { text = "A" } }, { { text = "Shift" }, { text = "B" } } })
+eq("different modifiers not merged", #pre, 0); eq("kept as two groups", #alt, 2)
+local rebound = Lg.rows(function(s) if s == "left" then return "A" end return defaultsT.keys[s] end, "SHIFT")
+local nudgeKeys = find(rebound, "Nudge")
+check("rebound arrows listed per key", nudgeKeys ~= nil and nudgeKeys.alts[1][1].text == "A")
+
+-- legend: slide, ease, clamp ------------------------------------------------------------------------
+local hOpen, aOpen, oOpen = Lg.slide(0, 300)
+eq("open: full height", hOpen, 300); eq("open: chevron down", aOpen, 0); eq("open: opaque", oOpen, 1)
+local hShut, aShut = Lg.slide(1, 300)
+local _, _, oShut = Lg.slide(1, 300)
+eq("closed: no height", hShut, 0); eq("closed: chevron sideways", aShut, -90); eq("closed: faded out", oShut, 0)
+near("half way", (Lg.slide(0.5, 300)), 150)
+eq("ease start", Lg.ease(0), 0); eq("ease end", Lg.ease(1), 1); near("ease middle", Lg.ease(0.5), 0.5)
+check("ease is gentle at the start", Lg.ease(0.1) < 0.1)
+eq("marquee: a name that fits stays put", Lg.marquee(3, 0, 14, 1.2), 0)
+eq("marquee: rests at the start", Lg.marquee(0.5, 10, 10, 1), 0)
+near("marquee: reaches the end", Lg.marquee(2.0, 10, 10, 1), -10)
+near("marquee: rests at the end", Lg.marquee(2.5, 10, 10, 1), -10)
+near("marquee: glides back", Lg.marquee(4.0, 10, 10, 1), 0)
+check("marquee: half way while gliding", math.abs(Lg.marquee(1.5, 10, 10, 1) + 5) < 0.01)
+near("marquee: repeats", Lg.marquee(4.5, 10, 10, 1), Lg.marquee(0.5, 10, 10, 1))
+local cx1, cy1 = Lg.clamp(-50, 2000, 1920, 1080, 80, 28)
+eq("clamp left", cx1, 0); eq("clamp bottom keeps title", cy1, 1052)
+local cx2 = Lg.clamp(1900, 10, 1920, 1080, 80, 28)
+eq("clamp right keeps title", cx2, 1840)
+check("legend lists its own toggle", find(rows, "Show / hide this list") ~= nil)
 
 -- banner ------------------------------------------------------------------------------------------
 local Bn = require("framemage.editor.banner")
@@ -272,6 +647,67 @@ local bs = { bannerGap = 10, bannerFallbackTop = 120 }
 eq("banner below compass", Bn.topFor(84, bs), 94)
 eq("banner fallback without compass", Bn.topFor(nil, bs), 120)
 eq("banner ignores absurd compass", Bn.topFor(900, bs), 120)
+
+-- editor: element filter, drag, stick, title bar ------------------------------------------------------
+local Ed = require("framemage.features.editor")
+local ignore = defaultsT.editor.ignoreClasses
+check("input icon is an atom", Ed.isAtom("WBP_DomInputIconWidget_C", ignore))
+check("text wrapper is an atom", Ed.isAtom("WBP_DomTextBlock_C", ignore))
+check("tooltip is an atom", Ed.isAtom("WBP_Inventory_Tooltip_C", ignore))
+check("compass is not an atom", not Ed.isAtom("WBP_HUD_Compass_C", ignore))
+check("build bar is not an atom", not Ed.isAtom("WBP_Building_Hotbar_C", ignore))
+check("key entry is an atom", Ed.isAtom("WBP_InputLegend_Contextual_Entry_C", ignore, defaultsT.editor.forceSplit))
+check("world legend (key hints + menu shortcuts) is not an atom",
+    not Ed.isAtom("WBP_InputLegend_World_C", ignore, defaultsT.editor.forceSplit))
+check("every forced split class survives the ignore list", (function()
+    for cls in pairs(defaultsT.editor.forceSplit) do
+        if Ed.isAtom(cls, ignore, defaultsT.editor.forceSplit) then return false end
+    end
+    return true
+end)())
+eq("snap nearest left edge", Ed.snapNearest(18, 60, 16, 0), -2)   -- 18 -> 16
+eq("snap nearest right edge", Ed.snapNearest(5, 47, 16, 0), 1)     -- 47 -> 48 beats 5 -> 0
+do -- an element dragged off screen is pulled back so 48 units of it show
+    local fx, fy = Ed.keepVisible({ left = 3900, top = 700, right = 4100, bottom = 760 }, 1920, 1080, 48)
+    eq("keep visible: pulled back from the right", fx, 1872 - 3900)
+    eq("keep visible: on-screen axis untouched", fy, 0)
+    local gx, gy = Ed.keepVisible({ left = -300, top = -90, right = -10, bottom = -40 }, 1920, 1080, 48)
+    eq("keep visible: pulled back from the left", gx, 58)
+    eq("keep visible: pulled down from the top", gy, 88)
+    local hx = Ed.keepVisible({ left = 100, top = 0, right = 300, bottom = 10 }, 1920, 1080, 48)
+    eq("keep visible: on screen stays", hx, 0)
+end
+eq("snap nearest with origin", Ed.snapNearest(963, 1000, 16, 960), -3)
+eq("stick deadzone", Ed.stickMove(0.15, 0.2, 700, 0.016), 0)
+near("stick full tilt", Ed.stickMove(1, 0.2, 700, 0.1), 70)
+check("stick left is negative", Ed.stickMove(-1, 0.2, 700, 0.1) < 0)
+check("stick gentle is slow", Ed.stickMove(0.4, 0.2, 700, 0.1) < 5)
+local Fr = require("framemage.editor.frame")
+local fs = { frameCorner = 3, titleGap = 3, titleMinTop = 6 }
+local bx, by = Fr.barPosition({ left = 100, top = 200, right = 300, bottom = 260 }, 26, fs)
+eq("bar left edge", bx, 97); eq("bar above the frame", by, 168)
+local _, by2 = Fr.barPosition({ left = 100, top = 10, right = 300, bottom = 60 }, 26, fs)
+eq("bar below when no room above", by2, 66)
+local Kc = require("framemage.core.keys")
+local chord = Kc.parse("Gamepad_LeftThumbstick&Gamepad_RightThumbstick")
+eq("chord keys", #chord.chord, 2); eq("chord second", chord.chord[2], "Gamepad_RightThumbstick")
+check("gamepad key", Kc.isGamepad("Gamepad_FaceButton_Bottom") and not Kc.isGamepad("PageDown"))
+local Lg2 = require("framemage.editor.legend")
+local padRows = Lg2.rows(function(s) return defaultsT.keys[s] end, "SHIFT", "gamepad")
+eq("pad legend heading", padRows[1].header, "Select")
+eq("pad legend first keys", padRows[2].alts[1][1].text, "LB")
+local closeRow = padRows[#padRows]
+eq("pad close is both sticks", #closeRow.alts[1], 2); eq("pad close cap", closeRow.alts[1][1].text, "LS")
+local kbRows = Lg2.rows(function(s) return defaultsT.keys[s] end, "SHIFT", "keyboard")
+local dragRow
+for _, r in ipairs(kbRows) do if r.label == "Drag the gold bar" then dragRow = r end end
+check("mouse drag row", dragRow ~= nil and dragRow.alts[1][1].mouse == "left")
+local P2 = require("framemage.editor.picker")
+local kept = P2.withoutAtoms({ { cls = "WBP_DomInputIconWidget_C" }, { cls = "WBP_Building_Hotbar_C" } },
+    function(c) return Ed.isAtom(c, ignore) end)
+eq("picker drops atoms", #kept, 1)
+eq("picker keeps atoms when alone", #P2.withoutAtoms({ { cls = "WBP_DomInputIconWidget_C" } },
+    function(c) return Ed.isAtom(c, ignore) end), 1)
 
 -- grid axes ------------------------------------------------------------------------------------
 local Gr = require("framemage.features.grid")
@@ -349,6 +785,19 @@ near("fully visible mid-way", Ce.timeline(1.5, cs).all, 1)
 check("fading at the end", Ce.timeline(cs.duration - 0.1, cs).all < 0.5)
 check("done after duration", Ce.timeline(cs.duration + 0.01, cs).done)
 
+-- ding --------------------------------------------------------------------------------------------
+local Dg = require("framemage.features.ding")
+local semis, cents = Dg.ratioToSemitones(2.76)
+eq("bell overtone semitones", semis, 17)
+check("bell overtone cents", math.abs(cents - 57.5) < 0.5, cents)
+local s2, c2 = Dg.ratioToSemitones(2)
+eq("octave is 12 semitones", s2, 12); near("octave has no cents", c2, 0)
+near("full volume is 0 dB", Dg.volumeToDb(1), 0)
+near("half volume is -6 dB", Dg.volumeToDb(0.5), -6.0206)
+eq("silent floor", Dg.volumeToDb(0), -60)
+near("A4 is 440 Hz", Dg.noteToHz(69), 440)
+check("default ding is E6", math.abs(Dg.noteToHz(defaultsT.ding.note) - 1318.5) < 1)
+
 -- replace -------------------------------------------------------------------------------------------
 local Rp = require("framemage.features.replace")
 local li = Rp.levelInfo(12, "Woodcutting", 50, nil)
@@ -358,23 +807,56 @@ check("levelInfo needs a level", Rp.levelInfo(nil, "x", 5, "no digits") == nil)
 eq("levelInfo empty skill", Rp.levelInfo(3, "", nil, nil).skill, nil)
 eq("level-up replacement registered", Rp.REPLACEMENTS[1].class, "WBP_LevelUpNotification_C")
 
--- modmenu ----------------------------------------------------------------------------------------
-local MM = require("framemage.features.modmenu")
-local cfgText = "# comment\nEnabled = false   # off\nGridSize = 24\nKeyEdit = F8\n"
-local parsedCfg = MM.parseConfig(cfgText)
-eq("config bool text", parsedCfg.Enabled, "false"); eq("config number text", parsedCfg.GridSize, "24")
-eq("coerce bool", MM.coerce("false", true), false); eq("coerce number", MM.coerce("24", 16), 24)
-check("coerce rejects junk bool", MM.coerce("maybe", true) == nil)
-eq("coerce string", MM.coerce("F8", "F9"), "F8")
-local tt = {}
-MM.setPath(tt, "grid.size", 8); eq("setPath/getPath", MM.getPath(tt, "grid.size"), 8)
-for _, r in ipairs(MM.SCHEMA) do
-    if r.setting then check("schema setting exists: " .. r.setting, MM.getPath(defaultsT, r.setting) ~= nil) end
+-- settings panel rows ----------------------------------------------------------------------------------
+do
+    local O = require("framemage.core.options")
+    local defaultsT = require("framemage.defaults")
+    local seen = {}
+    for _, row in ipairs(O.SCHEMA) do
+        if row.setting then
+            check("settings row has a default: " .. row.setting, O.getPath(defaultsT, row.setting) ~= nil)
+        end
+        if row.key then
+            check("settings row key unique: " .. row.key, not seen[row.key])
+            seen[row.key] = true
+        end
+        local tabOk = false
+        for _, t in ipairs(O.TABS) do if t.id == row.tab then tabOk = true end end
+        check("settings row in a known tab: " .. (row.key or row.label), tabOk)
+    end
+    eq("cycle forward", O.cycle({ "a", "b", "c" }, "b", 1), "c")
+    eq("cycle wraps", O.cycle({ "a", "b", "c" }, "c", 1), "a")
+    eq("cycle back wraps", O.cycle({ "a", "b", "c" }, "a", -1), "c")
+    eq("step up", O.step({ min = 4, max = 64, step = 4 }, 16, 1), 20)
+    eq("step clamps", O.step({ min = 4, max = 64, step = 4 }, 64, 1), 64)
+    near("step no drift", O.step({ min = 0, max = 1, step = 0.05 }, 0.7, 1), 0.75)
+    eq("display toggle", O.display({ type = "toggle" }, true), "On")
+    eq("display choice", O.display({ type = "choice", labels = { slate = "Slate" } }, "slate"), "Slate")
+    eq("display percent", O.display({ type = "slider", percent = true }, 0.75), "75%")
+    eq("display px", O.display({ type = "number", suffix = " px" }, 16), "16 px")
+    local t = {}
+    O.setPath(t, "bars.style", "facet")
+    eq("set / get path", O.getPath(t, "bars.style"), "facet")
 end
-local committed = io.open("FrameMage/modmenu.json", "rb")
-local committedText = committed and committed:read("a")
-if committed then committed:close() end
-check("modmenu.json is current (run: lua tools/gen_modmenu.lua)", committedText == MM.toJson(defaultsT, "0.1.0"))
+
+-- the point's colour, brightened to match the material
+do
+    local Bt = require("framemage.features.bars")
+    local c = Bt.tipColour({ R = 0.5, G = 0.9, B = 0.0, A = 1 }, 1.35, 0.08)
+    near("tip colour scaled", c.R, 0.755)
+    eq("tip colour capped at 1", c.G, 1)
+    near("tip colour lifted", c.B, 0.08)
+    eq("tip colour plain", Bt.tipColour({ R = 0.2, G = 0.2, B = 0.2 }).R, 0.2)
+end
+
+-- key capture spec
+do
+    local K2 = require("framemage.core.keys")
+    eq("capture spec plain", K2.specOf({}, "F9"), "F9")
+    eq("capture spec with ctrl", K2.specOf({ CONTROL = true }, "F9"), "CTRL+F9")
+    eq("capture spec order", K2.specOf({ SHIFT = true, CONTROL = true }, "A"), "CTRL+SHIFT+A")
+    check("captured spec parses", K2.parse("CTRL+F9") ~= nil)
+end
 
 print(string.format("%d passed, %d failed", passes, failures))
 os.exit(failures == 0 and 0 or 1)

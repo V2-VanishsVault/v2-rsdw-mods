@@ -256,6 +256,20 @@ def glow():
     return w, w, radial(w, w, fn)
 
 
+def chevron():
+    """A downward chevron (V), white so it can be tinted; rotated in game to point right when collapsed."""
+    w = 32
+    def seg(ax, ay, bx, by, r):
+        def f(px, py):
+            ex, ey = bx - ax, by - ay
+            t = max(0.0, min(1.0, ((px - ax) * ex + (py - ay) * ey) / (ex * ex + ey * ey)))
+            return math.hypot(px - ax - ex * t, py - ay - ey * t) - r
+        return f
+    left = seg(8, 12, 16, 21, 2.6)
+    right = seg(16, 21, 24, 12, 2.6)
+    return w, w, render(w, w, [(lambda px, py: min(left(px, py), right(px, py)), (1, 1, 1, 1))])
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     for name, (w, h, px) in {
@@ -268,6 +282,7 @@ def main():
         "fm_ribbon_mid.png": ribbon_mid(),
         "fm_spark.png": spark(),
         "fm_glow.png": glow(),
+        "fm_chevron.png": chevron(),
     }.items():
         png(os.path.join(OUT, name), w, h, px)
         print("wrote", name, w, "x", h)

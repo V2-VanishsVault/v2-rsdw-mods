@@ -42,6 +42,45 @@ function M.pretty(key)
     return last ~= "" and last or key
 end
 
+-- Names that say what a widget IS, not which one it is: the parent's name is used instead.
+M.GENERIC = { NotificationQueueWidget = true, Content = true, Container = true, Root = true, RootWidget = true,
+    Panel = true, Widget = true, Main = true, Body = true, Contents = true }
+
+local function segments(key)
+    local out = {}
+    for s in key:gmatch("[^/]+") do out[#out + 1] = s end
+    return out
+end
+
+local function bare(seg) return (seg:gsub("%*$", ""):gsub("_C$", "")) end
+
+-- Pure: display titles for a set of element keys, so no two read the same. A generic last name
+-- ("NotificationQueueWidget") gives way to its parent's ("PlayerUpkeeps" -> "Player Upkeeps"); titles that still
+-- clash get their parent's name in front ("Hotbar - Slot"). Unit-tested.
+function M.titles(keys)
+    local titles, segs = {}, {}
+    for i, key in ipairs(keys) do
+        local s = segments(key)
+        segs[i] = s
+        local last = s[#s] or key
+        if M.GENERIC[bare(last)] and #s >= 2 then
+            titles[i] = M.pretty(s[#s - 1])
+        else
+            titles[i] = M.pretty(key)
+        end
+    end
+    local count = {}
+    for _, t in ipairs(titles) do count[t] = (count[t] or 0) + 1 end
+    for i, t in ipairs(titles) do
+        local s = segs[i]
+        if count[t] > 1 and #s >= 2 then
+            local parent = M.pretty(s[#s - 1])
+            if parent ~= t then titles[i] = parent .. " - " .. t end
+        end
+    end
+    return titles
+end
+
 function M.isMaterial(kind)
     return kind ~= nil and kind:find("Material", 1, true) ~= nil
 end

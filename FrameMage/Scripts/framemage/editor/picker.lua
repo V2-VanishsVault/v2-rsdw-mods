@@ -16,6 +16,16 @@ function M.order(cands)
     return cands
 end
 
+-- Pure: drop building-block candidates, unless that would leave nothing. Candidates carry `cls`.
+function M.withoutAtoms(cands, isAtom)
+    local out = {}
+    for _, c in ipairs(cands) do
+        if not (c.cls and isAtom(c.cls)) then out[#out + 1] = c end
+    end
+    if #out == 0 then return cands end
+    return out
+end
+
 -- Pure: is this click a repeat of the last one (same spot)?
 function M.sameSpot(a, b, tolerance)
     return a and b and math.abs(a.x - b.x) <= tolerance and math.abs(a.y - b.y) <= tolerance
@@ -34,7 +44,8 @@ local function collect(roots, x, y, minArea, maxNodes)
                 local full = W.fullName(w)
                 if area >= minArea and not seen[full] then
                     seen[full] = true
-                    cands[#cands + 1] = { w = w, area = area, depth = depth }
+                    local okC, cls = pcall(W.className, w)
+                    cands[#cands + 1] = { w = w, area = area, depth = depth, cls = okC and cls or nil }
                 end
             end
             return true -- children can be drawn outside their parent (moved elements), so always descend
@@ -44,7 +55,8 @@ local function collect(roots, x, y, minArea, maxNodes)
 end
 
 -- Returns the widget to select for a click at (x, y), or nil. `roots` are the game's on-screen roots.
-function M.pick(roots, x, y, settings)
+-- isAtom(className): small building blocks (key icons, text wrappers) are skipped when anything else is there.
+function M.pick(roots, x, y, settings, isAtom)
     local here = { x = x, y = y }
     if last and M.sameSpot(last, here, settings.pickRepeatTolerance) and #last.list > 0 then
         -- step outward through the same stack; skip widgets that have since gone away
@@ -55,6 +67,7 @@ function M.pick(roots, x, y, settings)
         end
     end
     local cands = collect(roots, x, y, settings.pickMinArea, settings.pickMaxNodes)
+    if isAtom then cands = M.withoutAtoms(cands, isAtom) end
     local list = {}
     for i, c in ipairs(cands) do list[i] = c.w end
     last = { x = x, y = y, list = list, index = 1 }

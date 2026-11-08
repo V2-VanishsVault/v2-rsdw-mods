@@ -5,3 +5,4 @@ FrameMage/share/*
 FrameMage/config/settings.lua
 *.tmp
 *.bad
+__pycache__/

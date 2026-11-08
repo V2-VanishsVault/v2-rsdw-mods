@@ -177,17 +177,22 @@ function M.hide()
     visible = false
 end
 
--- Mod Menu setters ------------------------------------------------------------------------------------
+-- Setters (the Settings panel) ------------------------------------------------------------------------------------
 function M.setSnap(on)
     snapOn = on and true or false
     if visible or (host and snapOn) then M.show() end
 end
 function M.setShowLines(on)
     G.show = on and true or false
-    if not G.show then M.hide() end
+    if not G.show then
+        M.hide()
+    else
+        local ed = ctx.features.editor
+        if ed and ed.isActive and ed.isActive() then M.show() end -- back on while editing: show them now
+    end
 end
 
--- Snap size changed (Mod Menu): rebuild the lines at the new spacing next time it's shown.
+-- Snap size changed (the Settings panel): rebuild the lines at the new spacing next time it's shown.
 function M.setSize(size)
     G.size = size
     if host and W.valid(host.uw) then pcall(function() host.uw:RemoveFromParent() end) end

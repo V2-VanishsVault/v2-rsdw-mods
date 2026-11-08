@@ -9,7 +9,7 @@
 -- names (PageDown, LeftBracket, LeftMouseButton: what Mod Menu's key picker saves) or the older UE4SS names
 -- (PAGE_DOWN, OEM_FOUR, LEFT_MOUSE_BUTTON); both work. Modifiers must match exactly: plain PageDown does not
 -- fire while Ctrl is held, so Ctrl+PageDown can have its own action.
--- Bindings can be changed at runtime (rebind), which is what Mod Menu's hotkey page uses.
+-- Bindings can be changed at runtime (rebind), which is what the Settings panel's Keys tab uses.
 local log = require("framemage.core.log")
 
 local M = {}
@@ -47,20 +47,32 @@ function M.unrealName(name)
 end
 
 -- Pure: "CTRL+SHIFT+F9" -> { key = "F9", mods = { "CONTROL", "SHIFT" } }
+-- A chord of keys held together uses "&": "Gamepad_LeftThumbstick&Gamepad_RightThumbstick" (both sticks
+-- clicked) -> { key = first, chord = { all keys } }.
 function M.parse(spec)
     if type(spec) ~= "string" or spec == "" or spec:lower() == "none" then return nil, "no key" end
     local parts = {}
     for p in spec:gmatch("[^+%s]+") do parts[#parts + 1] = p end
     if #parts == 0 then return nil, "no key" end
-    local key = M.unrealName(table.remove(parts))
+    local last = table.remove(parts)
+    local chord
+    if last:find("&", 1, true) then
+        chord = {}
+        for k in last:gmatch("[^&]+") do chord[#chord + 1] = M.unrealName(k) end
+        if #chord == 0 then return nil, "no key" end
+    end
+    local key = chord and chord[1] or M.unrealName(last)
     local mods = {}
     for _, m in ipairs(parts) do
         local mm = MODS[m:upper()]
         if not mm then return nil, "unknown modifier " .. m end
         mods[#mods + 1] = mm
     end
-    return { key = key, mods = mods }
+    return { key = key, mods = mods, chord = chord }
 end
+
+-- Pure: is this an Unreal gamepad key (for device tracking and the legend)?
+function M.isGamepad(name) return type(name) == "string" and name:sub(1, 7) == "Gamepad" end
 
 -- Pure: does a binding with `mods` match the modifier state `held` ({CONTROL=bool, SHIFT=bool, ALT=bool})?
 function M.modsMatch(mods, held)
@@ -149,6 +161,76 @@ end
 
 function M.forgetController() pc = nil; pcRetryAt = 0 end
 
+-- Last input device a binding fired from ("keyboard" or "gamepad"); the legend switches its glyphs on it.
+M.device = "keyboard"
+M.deviceChanges = 0
+local function noteDevice(key)
+    local d = M.isGamepad(key) and "gamepad" or "keyboard"
+    if d ~= M.device then M.device = d; M.deviceChanges = M.deviceChanges + 1 end
+end
+function M.noteMouse() if M.device ~= "keyboard" then M.device = "keyboard"; M.deviceChanges = M.deviceChanges + 1 end end
+
+function M.noteGamepad() if M.device ~= "gamepad" then M.device = "gamepad"; M.deviceChanges = M.deviceChanges + 1 end end
+
+-- Is a key held right now (one-off read, outside the bindings)?
+function M.isDown(name)
+    if not pc then return false end
+    local ok, d = pcall(function() return pc:IsInputKeyDown(fkey(M.unrealName(name))) end)
+    return ok and d == true
+end
+
+-- Did a key go down since the last frame (e.g. MouseScrollUp, which is never "held")?
+function M.justPressed(name)
+    if not pc then return false end
+    local ok, d = pcall(function() return pc:WasInputKeyJustPressed(fkey(M.unrealName(name))) end)
+    return ok and d == true
+end
+
+-- Analog value of an axis key (Gamepad_LeftX, Gamepad_LeftY, Gamepad_LeftTriggerAxis ...), or 0.
+function M.analog(name)
+    if not pc then return 0 end
+    local ok, v = pcall(function() return pc:GetInputAnalogKeyState(fkey(name)) end)
+    if ok and type(v) == "number" then return v end
+    return 0
+end
+
+-- Key capture (the Settings panel's rebinding): the next real key press, with Ctrl / Shift / Alt if held, is handed
+-- to the callback as a spec ("CTRL+F9"); Escape cancels (nil). While capturing, no binding fires, and afterwards
+-- the key just pressed doesn't also fire its old action.
+M.CAPTURE_KEYS = {}
+do
+    for c in ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):gmatch(".") do M.CAPTURE_KEYS[#M.CAPTURE_KEYS + 1] = c end
+    for _, d in ipairs({ "Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine" }) do
+        M.CAPTURE_KEYS[#M.CAPTURE_KEYS + 1] = d
+        M.CAPTURE_KEYS[#M.CAPTURE_KEYS + 1] = "NumPad" .. d
+    end
+    for i = 1, 12 do M.CAPTURE_KEYS[#M.CAPTURE_KEYS + 1] = "F" .. i end
+    for _, k in ipairs({ "SpaceBar", "Tab", "Enter", "BackSpace", "Insert", "Delete", "Home", "End", "PageUp",
+        "PageDown", "Left", "Right", "Up", "Down", "Hyphen", "Equals", "LeftBracket", "RightBracket", "Semicolon",
+        "Apostrophe", "Comma", "Period", "Slash", "Backslash", "Tilde", "Add", "Subtract", "Multiply", "Divide",
+        "Decimal", "Gamepad_FaceButton_Bottom", "Gamepad_FaceButton_Right", "Gamepad_FaceButton_Left",
+        "Gamepad_FaceButton_Top", "Gamepad_LeftShoulder", "Gamepad_RightShoulder", "Gamepad_LeftTrigger",
+        "Gamepad_RightTrigger", "Gamepad_DPad_Up", "Gamepad_DPad_Down", "Gamepad_DPad_Left", "Gamepad_DPad_Right",
+        "Gamepad_Special_Left", "Gamepad_Special_Right", "Gamepad_LeftThumbstick", "Gamepad_RightThumbstick" }) do
+        M.CAPTURE_KEYS[#M.CAPTURE_KEYS + 1] = k
+    end
+end
+local captureCb
+
+function M.capture(cb) captureCb = cb end
+function M.cancelCapture() captureCb = nil end
+function M.capturing() return captureCb ~= nil end
+
+-- Pure: a spec from held modifiers and a key ("CTRL+SHIFT+F9"). Unit-tested.
+function M.specOf(held, key)
+    local parts = {}
+    for _, m in ipairs({ "CONTROL", "SHIFT", "ALT" }) do
+        if held[m] then parts[#parts + 1] = (m == "CONTROL") and "CTRL" or m end
+    end
+    parts[#parts + 1] = key
+    return table.concat(parts, "+")
+end
+
 local function tick(W, sched)
     local p = controller(W)
     if not p then return end
@@ -165,6 +247,30 @@ local function tick(W, sched)
         local ok, d = pcall(function() return p:WasInputKeyJustPressed(fkey(name)) end)
         return ok and d == true
     end
+    if captureCb then
+        local spec, done
+        if justPressed("Escape") then done = true
+        else
+            for _, k in ipairs(M.CAPTURE_KEYS) do
+                if justPressed(k) then
+                    local mods = {}
+                    for m, names in pairs(MOD_KEYS) do mods[m] = isDown(names[1]) or isDown(names[2]) end
+                    spec, done = M.specOf(mods, k), true
+                    break
+                end
+            end
+        end
+        if done then
+            local cb = captureCb
+            captureCb = nil
+            -- the key just pressed is still down: don't let it fire its old action on release of the capture
+            for _, b in ipairs(bindings) do
+                if b.parsed then b.down = isDown(b.parsed.key) end
+            end
+            sched.safe("key:capture", function() cb(spec) end)()
+        end
+        return
+    end
     local held
     local now = os.clock()
     for _, b in ipairs(bindings) do
@@ -174,10 +280,19 @@ local function tick(W, sched)
                 held = {}
                 for m, names in pairs(MOD_KEYS) do held[m] = isDown(names[1]) or isDown(names[2]) end
             end
-            local down = isDown(parsed.key)
+            local down
+            if parsed.chord then
+                down = true
+                for _, k in ipairs(parsed.chord) do if not isDown(k) then down = false break end end
+            else
+                down = isDown(parsed.key)
+            end
             local pressed = down and not b.down
-            if not down and not b.down and justPressed(parsed.key) then pressed = true end -- a tap within one frame
+            if not parsed.chord and not down and not b.down and justPressed(parsed.key) then
+                pressed = true -- a tap within one frame
+            end
             if pressed and M.modsMatch(parsed.mods, held) then
+                noteDevice(parsed.key)
                 b.nextRepeat = now + REPEAT_DELAY
                 sched.safe("key:" .. b.name, b.fn)()
             elseif down and b.down and b.repeats and b.nextRepeat and now >= b.nextRepeat

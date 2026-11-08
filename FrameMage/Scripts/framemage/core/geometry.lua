@@ -1,53 +1,53 @@
--- Where widgets are on screen, in viewport UI units (the same units as a full-screen CanvasPanel slot and the
--- mouse position), measured from cached geometry, so it includes render transforms and parent offsets.
+-- Where widgets and the mouse are on screen, in viewport units: the units of a full-screen CanvasPanel slot,
+-- which is what our overlays position things in (the screen's pixels divided by the game's UI scale; a
+-- 5120x1440 screen at 1.33 is 3840x1080 units).
 --
--- Needs a reference: a full-screen overlay canvas of ours that has been painted at least once
--- (setReference). Its geometry converts Slate's absolute (desktop pixel) space to viewport units.
+-- Widget rectangles are computed from layout data by core/measure.lua: Unreal's own answer (FGeometry) can't
+-- be read from Lua. The reference set here is only a world context for the viewport queries (one of our
+-- overlay canvases).
 local M = {}
 
 local W = require("framemage.core.widgets")
+local measure = require("framemage.core.measure")
 
-local ref -- CanvasPanel
-local SBL, WLL
+local ref -- a widget of ours (world context)
+local WLL
 
-local function libs()
-    if not W.valid(SBL) then SBL = StaticFindObject("/Script/UMG.Default__SlateBlueprintLibrary") end
+local function lib()
     if not W.valid(WLL) then WLL = StaticFindObject("/Script/UMG.Default__WidgetLayoutLibrary") end
+    return WLL
 end
 
 function M.setReference(canvas) ref = canvas end
 function M.hasReference() return ref ~= nil and W.valid(ref) end
 
--- { left, top, right, bottom, accScale } or nil. accScale = drawn units per local unit of `w`.
-function M.rect(w)
+-- The screen's size in viewport units, or nil.
+function M.screen()
     if not M.hasReference() then return nil end
-    libs()
-    local ok, r = pcall(function()
-        local gg = ref:GetCachedGeometry()
-        local o = SBL:LocalToAbsolute(gg, { X = 0, Y = 0 })
-        local o1 = SBL:LocalToAbsolute(gg, { X = 1, Y = 1 })
-        local sx, sy = o1.X - o.X, o1.Y - o.Y
-        if not (sx > 0 and sy > 0) then return nil end
-        local wg = w:GetCachedGeometry()
-        local size = SBL:GetLocalSize(wg)
-        local tl = SBL:LocalToAbsolute(wg, { X = 0, Y = 0 })
-        local br = SBL:LocalToAbsolute(wg, { X = size.X, Y = size.Y })
-        local unit = SBL:LocalToAbsolute(wg, { X = 1, Y = 0 })
-        return {
-            left = (tl.X - o.X) / sx, top = (tl.Y - o.Y) / sy,
-            right = (br.X - o.X) / sx, bottom = (br.Y - o.Y) / sy,
-            accScale = (unit.X - tl.X) / sx,
-        }
+    local ok, w, h = pcall(function()
+        local px = lib():GetViewportSize(ref)
+        local scale = lib():GetViewportScale(ref)
+        if not (scale and scale > 0 and px and px.X and px.X > 0) then return nil end
+        return px.X / scale, px.Y / scale
     end)
-    if ok then return r end
+    if ok and w then return w, h end
     return nil
 end
 
--- Mouse position in the same viewport units, or nil.
+measure.init(W, function() return M.screen() end)
+
+-- { left, top, right, bottom, accScale } or nil. accScale = drawn units per local unit of `w`.
+function M.rect(w)
+    return measure.rect(w)
+end
+
+-- Layouts changed (a drag or an edit): forget this frame's measurements.
+function M.invalidate() measure.invalidate() end
+
+-- Mouse position in viewport units, or nil.
 function M.mouse()
     if not M.hasReference() then return nil end
-    libs()
-    local ok, p = pcall(function() return WLL:GetMousePositionOnViewport(ref) end)
+    local ok, p = pcall(function() return lib():GetMousePositionOnViewport(ref) end)
     if ok and p and type(p.X) == "number" then return p.X, p.Y end
     return nil
 end

@@ -99,8 +99,10 @@ foreach ($dir in "config", "layouts", "dumps", "share") {
     Add-Missing (Join-Path $src $dir) (Join-Path $dst $dir) | Out-Null
 }
 
-# Mod Menu page: modmenu.json must sit next to enabled.txt (always replaced; it's generated, not user data)
-Copy-Item (Join-Path $src "modmenu.json") (Join-Path $dst "modmenu.json") -Force
+# Frame Mage no longer has a Mod Menu page (its own Settings panel replaced it): remove the old page so Mod Menu stops
+# listing Frame Mage. (modmenu-settings.txt is left alone: it's only the old page's saved values.)
+$oldPage = Join-Path $dst "modmenu.json"
+if (Test-Path $oldPage) { Remove-Item $oldPage -Force; Write-Host "Removed the old Mod Menu page (modmenu.json)" }
 
 # Enabled via enabled.txt rather than mods.txt: Vortex manages mods.txt and may rewrite it.
 Set-Content (Join-Path $dst "enabled.txt") "" -Encoding ascii

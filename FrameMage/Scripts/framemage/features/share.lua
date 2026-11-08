@@ -1,7 +1,7 @@
 -- Share: export the current layout to a text file and import someone else's.
 --
 --   Export -> Mods/FrameMage/share/<profile>.framemage.txt
---   Import <- Mods/FrameMage/share/<name>.framemage.txt (name from Mod Menu's "Import file", default "import")
+--   Import <- Mods/FrameMage/share/<name>.framemage.txt (name from settings: share.importFile, default "import")
 --             replaces the current profile; the old one is kept as layouts/<profile>.before-import.lua
 --
 -- Shared files come from other people, so import is strict: it loads the file as data only (no code can run),
@@ -23,7 +23,7 @@ function M.encode(profileName, elements, when)
     for _ in pairs(elements or {}) do n = n + 1 end
     local header = string.format(
         "-- Frame Mage layout: %s (%d elements), exported %s\n"
-            .. "-- To use it: put this file in Mods/FrameMage/share/ and import it from Mod Menu (Frame Mage > Share).\n",
+            .. "-- To use it: put this file in Mods/FrameMage/share/ and save it as import.framemage.txt and use Import in Frame Mage's Settings (F4 in the editor), Layouts tab.\n",
         profileName, n, when or "")
     return header .. serialize.dump({ framemage = "layout", format = 1, profile = profileName, elements = elements or {} })
 end
@@ -92,7 +92,7 @@ function M.import(name)
     local layout = ctx.features.layout
     if not layout then return end
     local file = M.importFileName(name or ctx.settings.share.importFile)
-    if not file then flash("Import: type a file name (no folders) in Mod Menu first") return end
+    if not file then flash("Import: set share.importFile in settings.lua (a file name, no folders)") return end
     local text = ctx.fs.read(shareDir() .. file)
     if not text then flash("Import: share/" .. file .. " not found") return end
     local data, err, dropped = M.decode(text)

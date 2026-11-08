@@ -1,6 +1,7 @@
--- Art: replace any Image/Border brush texture with a PNG from Art/<skin>/<TextureName>.png.
+-- Art: replace any Image/Border brush texture with a PNG from the theme, Art/themes/<theme>/<TextureName>.png
+-- (falling back to the Demi-human theme's; see core/themes.lua).
 -- Material brushes (animated effects) without a PNG are handed to the materials feature, which themes their
--- parameters instead (Art/<skin>/materials.lua).
+-- parameters instead (the theme's materials.lua).
 --
 -- The game's texture name is the key, so one file reskins that texture everywhere it is used.
 -- PNGs load at runtime (KismetRenderingLibrary.ImportFileAsTexture2D): no cooking, edit and press
@@ -36,9 +37,6 @@ local function isA(w, cls)
     return ok and r == true
 end
 
-local function skinDir()
-    return ctx.dir .. "Art/" .. ctx.settings.skin .. "/"
-end
 
 local function resourceOf(w, kind)
     local ok, res = pcall(function()
@@ -53,8 +51,8 @@ function M.loadTexture(name, worldContext)
     local tex = texCache[name]
     if tex and W.valid(tex) then return tex end
     if missing[name] then return nil end
-    local path = skinDir() .. name .. ".png"
-    if not ctx.fs.exists(path) then missing[name] = true return nil end
+    local path = ctx.themes.find(name .. ".png")
+    if not path then missing[name] = true return nil end
     if not W.valid(KRL) then KRL = StaticFindObject("/Script/Engine.Default__KismetRenderingLibrary") end
     local ok, t = pcall(function() return KRL:ImportFileAsTexture2D(worldContext, path) end)
     if not (ok and W.valid(t)) then
@@ -126,8 +124,22 @@ local function process(w, kind)
             local okD, params = pcall(mats.describe, res) -- parameter names for dumps/materials.txt
             if okD then rec.params = params end
         end
+        -- what a replacement needs (dumps/textures.txt): the texture's pixel size, the size and way the
+        -- game draws it (plain image, 9-slice box/border) and where it was first seen
+        pcall(function()
+            if cls == "Texture2D" then rec.size = M.sizeText(res:Blueprint_GetSizeX(), res:Blueprint_GetSizeY()) end
+        end)
+        pcall(function()
+            local b = (kind == "image") and w.Brush or w.Background
+            rec.drawn = M.sizeText(b.ImageSize.X, b.ImageSize.Y)
+            rec.drawAs = M.DRAW_AS[b.DrawAs]
+        end)
+        pcall(function() rec.where = W.key(w) end)
         M.seen[name] = rec
     end
+    -- where the texture lives (a texture first seen in an earlier session, restored from the dump, is still
+    -- learned here)
+    if cls == "Texture2D" and not M.knowsPath(name) then pcall(function() M.rememberPath(name, res:GetPathName()) end) end
     rec.count = rec.count + 1
     local tex = artOn() and M.loadTexture(name, w)
     if not tex and names.isMaterial(cls) then
@@ -139,6 +151,14 @@ local function process(w, kind)
         local okP, path = pcall(function() return res:GetPathName() end)
         ours[W.fullName(tex)] = { name = name, path = okP and path or nil }
     end
+end
+
+M.DRAW_AS = { [0] = "none", [1] = "box", [2] = "border", [3] = "image", [4] = "rounded" }
+
+-- Pure: "256x64" from two sizes (rounded), or nil. Unit-tested.
+function M.sizeText(w, h)
+    if type(w) ~= "number" or type(h) ~= "number" or w <= 0 or h <= 0 then return nil end
+    return string.format("%dx%d", math.floor(w + 0.5), math.floor(h + 0.5))
 end
 
 local function processAny(w)
@@ -186,10 +206,10 @@ function M.reload()
             if W.valid(w) and W.isInstance(w) then refresh(w, spec[2]); n = n + 1 end
         end
     end
-    log.info("art reloaded from %s (%d brushes checked, %d material themes)", skinDir(), n, themed)
+    log.info("art reloaded: theme '%s' (%d brushes checked, %d material themes)", ctx.themes.current(), n, themed)
     local editor = ctx.features.editor
     if editor then
-        editor.flash(string.format("Frame Mage: art reloaded (skin '%s', %d material themes)", ctx.settings.skin, themed))
+        editor.flash(string.format("Art reloaded: %s theme", ctx.themes.LABELS[ctx.themes.current()] or ctx.themes.current()))
     end
 end
 
@@ -221,10 +241,68 @@ end
 -- materials re-apply or restore their parameters.
 function M.setEnabled() M.reload() end
 
+-- Where game textures live (name -> object path), learned as they're seen and kept in config/texture-paths.lua, so
+-- a feature can load a texture by name even before the game has shown it (e.g. the Agility icon on the stamina ring).
+local knownPaths, pathsDirty = {}, false
+local function pathsFile() return ctx.dir .. "config/texture-paths.lua" end
+
+function M.knowsPath(name) return knownPaths[name] ~= nil end
+
+function M.rememberPath(name, path)
+    if type(path) ~= "string" or path == "" or knownPaths[name] == path then return end
+    knownPaths[name] = path
+    pathsDirty = true
+    if name:find("Agility", 1, true) then log.info("art: found %s at %s", name, path) end
+end
+
+-- A game texture by name: loaded if the game has it, else loaded from its remembered path; nil if unknown.
+function M.gameTexture(name)
+    local path = knownPaths[name]
+    if not path then
+        for _, t in pairs(FindAllOf("Texture2D") or {}) do
+            local ok, n = pcall(function() return t:GetFName():ToString() end)
+            if ok and n == name and W.valid(t) then
+                pcall(function() M.rememberPath(name, t:GetPathName()) end)
+                return t
+            end
+        end
+        return nil
+    end
+    local t = StaticFindObject(path)
+    if W.valid(t) then return t end
+    if LoadAsset then
+        local ok, loaded = pcall(LoadAsset, path)
+        if ok and W.valid(loaded) then return loaded end
+    end
+    return nil
+end
+
+local function loadPaths()
+    local text = ctx.fs.read(pathsFile())
+    if not text then return end
+    local t = ctx.serialize.parse(text, pathsFile())
+    if type(t) == "table" then
+        for k, v in pairs(t) do if type(v) == "string" then knownPaths[k] = v end end
+    end
+end
+
+local function savePaths()
+    if not pathsDirty then return end
+    pathsDirty = false
+    ctx.config.save(pathsFile(), knownPaths,
+        "-- Where game textures live (learned automatically as Frame Mage sees them). Safe to delete.\n")
+end
+
 function M.init(c)
     ctx, W, log = c, c.widgets, c.log
     c.events.on("userwidget", onUserWidget)
     c.events.on("worldchanged", function() texCache, fileCache = {}, {} end) -- imports may be collected with their widgets
+    pcall(loadPaths)
+    c.sched.every(10000, "art.paths", function()
+        local ok, err = pcall(savePaths)
+        if not ok then log.warn("art: could not save texture paths: %s", tostring(err)) end
+    end)
+    c.events.on("themechanged", function() fileCache = {}; M.reload() end)
     if c.settings.art.hookSetters then hookSetters() end
     c.keys.bind(c.settings.keys.reloadArt, "reloadArt", M.reload)
 end
