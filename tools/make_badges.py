@@ -17,7 +17,7 @@ SS = 4
 N = SIZE * SS
 
 GOLD = (255, 214, 140)
-COLOURS = {"stamina": ((255, 214, 72), (190, 130, 20)),
+COLORS = {"stamina": ((255, 214, 72), (190, 130, 20)),
            "health": ((236, 60, 60), (140, 18, 22)),
            "special": ((120, 180, 255), (40, 90, 190))}
 
@@ -42,11 +42,11 @@ def disc():
     return im
 
 
-def glyph_layer(draw_fn, colours):
-    """Draw the glyph as a mask, then fill it with a top-to-bottom gradient in the bar's colours."""
+def glyph_layer(draw_fn, colors):
+    """Draw the glyph as a mask, then fill it with a top-to-bottom gradient in the bar's colors."""
     mask = Image.new("L", (N, N), 0)
     draw_fn(ImageDraw.Draw(mask))
-    hi, lo = colours
+    hi, lo = colors
     grad = Image.new("RGBA", (N, N))
     gd = ImageDraw.Draw(grad)
     for y in range(N):
@@ -95,7 +95,7 @@ def heart(d):
 
 
 def sword(d, angle):
-    """One sword pointing up-and-out, rotated about the badge centre."""
+    """One sword pointing up-and-out, rotated about the badge center."""
     def rot(x, y):
         x, y = x - 0.5, y - 0.5
         c, s = math.cos(angle), math.sin(angle)
@@ -115,7 +115,7 @@ def swords(d):
 
 
 def badge(name, draw_fn):
-    im = Image.alpha_composite(disc(), glyph_layer(draw_fn, COLOURS[name]))
+    im = Image.alpha_composite(disc(), glyph_layer(draw_fn, COLORS[name]))
     im = im.resize((SIZE, SIZE), Image.LANCZOS)
     path = os.path.join(OUT, "badge_%s.png" % name)
     im.save(path)

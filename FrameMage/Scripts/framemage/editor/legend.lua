@@ -89,11 +89,11 @@ function M.rows(specFor, bigModifier, device)
     fixed("Click  (again: the panel around it)", M.cap("LeftMouseButton"))
     fixed("The panel around it", M.cap("RightMouseButton"))
     row("Previous / next", { "prev", "next" })
-    row("Neighbouring part", { "prevSibling", "nextSibling" })
+    row("Neighboring part", { "prevSibling", "nextSibling" })
     row("Parent / child", { "parent", "child" })
     row("Hidden elements (click to show)", { "showHidden" })
     header("Move")
-    fixed("Drag the gold bar", M.cap("LeftMouseButton"))
+    fixed("Drag a title bar", M.cap("LeftMouseButton"))
     -- the four arrow keys collapse into one "Arrows" cap when they are the arrow keys
     local arrowSpecs, allArrows = {}, true
     for _, s in ipairs({ "left", "right", "up", "down" }) do
@@ -114,6 +114,7 @@ function M.rows(specFor, bigModifier, device)
     row("More / less faded", { "fadeDown", "fadeUp" })
     row("Hide / show", { "hide" })
     row("Reset element", { "reset" })
+    row("Undo a move", { "undo" })
     header("Editor")
     row("Grid on / off", { "toggleGrid" })
     row("Next layout", { "nextProfile" })
@@ -226,9 +227,10 @@ local function makeCap(new, text, c, S, capTex, ownIcon)
         size:SetContent(img)
         return size
     end
-    -- every key is the same square, like the game's prompts
+    -- every key the same size: wider than tall, like the game's own prompts, so most names fit without scrolling
+    local keyW = S.legendKeyWidth or S.legendKeySize
     local size = new("SizeBox")
-    size:SetWidthOverride(S.legendKeySize)
+    size:SetWidthOverride(keyW)
     size:SetHeightOverride(S.legendKeySize)
     local cap = new("Border")
     local boxed = false
@@ -236,7 +238,7 @@ local function makeCap(new, text, c, S, capTex, ownIcon)
         boxed = pcall(function()
             cap:SetBrush({
                 ResourceObject = capTex,
-                ImageSize = { X = S.legendKeySize, Y = S.legendKeySize },
+                ImageSize = { X = keyW, Y = S.legendKeySize },
                 DrawAs = 1, -- Box: 9-slice
                 Margin = { Left = 0.32, Top = 0.32, Right = 0.32, Bottom = 0.32 },
                 TintColor = { SpecifiedColor = { R = 1, G = 1, B = 1, A = 1 }, ColorUseRule = 0 },
@@ -248,15 +250,15 @@ local function makeCap(new, text, c, S, capTex, ownIcon)
         cap:SetBrushColor({ R = 0.12, G = 0.11, B = 0.10, A = 0.95 })
     end
     cap:SetPadding({ Left = S.legendCapPadX, Top = 1, Right = S.legendCapPadX, Bottom = 2 })
-    cap:SetHorizontalAlignment(0) -- the window fills the cap; the text centres in it (or scrolls)
+    cap:SetHorizontalAlignment(0) -- the window fills the cap; the text centers in it (or scrolls)
     cap:SetVerticalAlignment(2)
     -- the name sits in a clipped window; a long name scrolls in it (see M.tick)
     local window = new("SizeBox")
-    window:SetWidthOverride(S.legendKeySize - 2 * S.legendCapPadX)
+    window:SetWidthOverride(keyW - 2 * S.legendCapPadX)
     pcall(function() window.Clipping = 1 end)
     pcall(function() window:SetClipping(1) end)
     local t = text(c.text, S.legendCapFontSize, { R = 0.96, G = 0.93, B = 0.86, A = 1 })
-    pcall(function() t:SetJustification(1) end) -- centred while it fits
+    pcall(function() t:SetJustification(1) end) -- centered while it fits
     window:SetContent(t)
     cap:SetContent(window)
     size:SetContent(cap)
@@ -270,8 +272,8 @@ local function build(ctx, S)
     local art = ctx.features.art
     local function ownIcon(file) return art and art.loadFile(ctx.dir .. "Art/_ui/" .. file, h.uw) end
     -- keycaps: the theme's own, else the game's blank keycap, else our plain one
-    local capTex = style.keycap(h.uw) or findTexture("T_Keys-Special-Blank") or findTexture("T_Keys-Standard-Blank")
-        or ownIcon("fm_keycap.png")
+    -- (always the game's: the theme's own border isn't for keys)
+    local capTex = findTexture("T_Keys-Special-Blank") or findTexture("T_Keys-Standard-Blank") or ownIcon("fm_keycap.png")
     local font = gameKeyFont()
     local n = 0
     local function new(cls)
@@ -442,7 +444,7 @@ end
 -- Scroll the key names that don't fit (measured once, after the list has been laid out).
 local function scrollNames()
     if not (S and host and shown) then return end
-    local inner = S.legendKeySize - 2 * S.legendCapPadX
+    local inner = (S.legendKeyWidth or S.legendKeySize) - 2 * S.legendCapPadX -- (the cap's width, inside its rim)
     local now = os.clock()
     for _, m in ipairs(marquees) do
         if m.overflow == nil then

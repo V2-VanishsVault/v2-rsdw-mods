@@ -21,12 +21,23 @@ end
 function M.setReference(canvas) ref = canvas end
 function M.hasReference() return ref ~= nil and W.valid(ref) end
 
+-- A world context for the viewport queries: our reference, or else the player controller. (Without one, the screen
+-- size was unknown until the editor or Settings had been opened, and everything measured before then - the stacked
+-- survival gauges at load - assumed a 1920-wide screen.)
+local fallback
+local function context()
+    if M.hasReference() then return ref end
+    if not (fallback and W.valid(fallback)) then fallback = FindFirstOf("PlayerController") end
+    return fallback and W.valid(fallback) and fallback or nil
+end
+
 -- The screen's size in viewport units, or nil.
 function M.screen()
-    if not M.hasReference() then return nil end
+    local cx = context()
+    if not cx then return nil end
     local ok, w, h = pcall(function()
-        local px = lib():GetViewportSize(ref)
-        local scale = lib():GetViewportScale(ref)
+        local px = lib():GetViewportSize(cx)
+        local scale = lib():GetViewportScale(cx)
         if not (scale and scale > 0 and px and px.X and px.X > 0) then return nil end
         return px.X / scale, px.Y / scale
     end)
@@ -62,7 +73,7 @@ function M.area(r)
     return math.max(0, r.right - r.left) * math.max(0, r.bottom - r.top)
 end
 
--- Grow a rectangle around its centre to at least `min` units each way (empty widgets have no size).
+-- Grow a rectangle around its center to at least `min` units each way (empty widgets have no size).
 function M.atLeast(r, min)
     local out = { left = r.left, top = r.top, right = r.right, bottom = r.bottom }
     if out.right - out.left < min then

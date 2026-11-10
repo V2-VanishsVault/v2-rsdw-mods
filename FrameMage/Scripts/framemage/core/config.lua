@@ -26,6 +26,21 @@ function M.merge(base, over)
     return out
 end
 
+-- Pure: settings saved under the old British names (durabilityColours, grid.centreAlpha...) renamed to today's
+-- American ones, at any depth. Unit-tested.
+function M.americanize(v)
+    if type(v) ~= "table" then return v end
+    local out = {}
+    for k, x in pairs(v) do
+        local nk = k
+        if type(k) == "string" then
+            nk = k:gsub("Colour", "Color"):gsub("colour", "color"):gsub("Centre", "Center"):gsub("centre", "center")
+        end
+        if out[nk] == nil or nk == k then out[nk] = M.americanize(x) end
+    end
+    return out
+end
+
 function M.load(path, defaults)
     local text = fs.read(path)
     if not text then return M.deepCopy(defaults or {}) end
@@ -35,7 +50,7 @@ function M.load(path, defaults)
         fs.write(path .. ".bad", text)
         return M.deepCopy(defaults or {})
     end
-    return M.merge(defaults or {}, data)
+    return M.merge(defaults or {}, M.americanize(data))
 end
 
 -- Pure: the parts of `current` that differ from `defaults` (what a user actually changed).

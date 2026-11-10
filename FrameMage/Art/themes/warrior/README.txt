@@ -1,5 +1,4 @@
-Warrior theme (not made yet).
+Warrior theme (the melee class): sharp and angular - cut corners, steel and red ember light.
 
-Anything missing here comes from ../demihuman, so this theme currently looks like Demi-human.
-Add files with the same names as Demi-human's to change them: <TextureName>.png, materials.lua, ui/*.png and
-theme.lua (only the values you change).
+Made by: python tools/make_theme.py warrior (tools/make_warrior.py).
+Anything missing here (the stones, the progress-bar art) comes from ../demihuman.

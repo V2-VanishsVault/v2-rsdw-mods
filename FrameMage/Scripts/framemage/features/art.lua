@@ -22,7 +22,7 @@ local inHook = false
 local names = require("framemage.core.names")
 M.seen = {} -- resource key -> { kind = "Texture2D", count = n, parent = "MI_..." } (used by the inspector)
 
--- Art applies only while the mod is on (master switch) and art itself is enabled in settings.
+-- Art applies only while art itself is enabled in settings.
 local function artOn() return ctx.enabled and ctx.settings.art.enabled end
 
 local ImageClass, BorderClass
@@ -197,6 +197,7 @@ end
 
 function M.reload()
     texCache, missing = {}, {}
+    fileCache = {} -- Frame Mage's own PNGs (theme ui/ art) are read again too
     local mats = ctx.features.materials
     local themed = mats and mats.reload() or 0
     classes()
@@ -207,6 +208,9 @@ function M.reload()
         end
     end
     log.info("art reloaded: theme '%s' (%d brushes checked, %d material themes)", ctx.themes.current(), n, themed)
+    -- Frame Mage's restyled windows hold the textures they were given: re-skin them from the freshly loaded files
+    -- ("stylechanged", not "themechanged": a theme change already runs this reload)
+    ctx.events.emit("stylechanged")
     local editor = ctx.features.editor
     if editor then
         editor.flash(string.format("Art reloaded: %s theme", ctx.themes.LABELS[ctx.themes.current()] or ctx.themes.current()))
@@ -237,9 +241,6 @@ local function hookSetters()
     end
 end
 
--- Master switch: reload re-points every swapped brush (PNG when on, the game's original when off) and lets
--- materials re-apply or restore their parameters.
-function M.setEnabled() M.reload() end
 
 -- Where game textures live (name -> object path), learned as they're seen and kept in config/texture-paths.lua, so
 -- a feature can load a texture by name even before the game has shown it (e.g. the Agility icon on the stamina ring).

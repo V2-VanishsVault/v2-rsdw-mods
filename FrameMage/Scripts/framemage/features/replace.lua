@@ -118,13 +118,6 @@ end
 
 local byClass = {}
 
-function M.setEnabled(enabled)
-    if enabled then return end
-    for _, rec in pairs(watched) do
-        if rec.hiding and W.valid(rec.w) then unhide(rec) end
-    end
-end
-
 function M.init(c)
     ctx, W, log = c, c.widgets, c.log
     for _, spec in ipairs(M.REPLACEMENTS) do byClass[spec.class] = spec end

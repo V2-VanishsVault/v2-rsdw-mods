@@ -68,7 +68,7 @@ local function build()
     local box = new("HorizontalBox")
     box:AddChildToHorizontalBox(piece("fm_ribbon_left.png", ART.endWidth * k))
 
-    -- centre: stretched band with the name on it, centred on the band (not the whole image)
+    -- center: stretched band with the name on it, centered on the band (not the whole image)
     local midSize = new("SizeBox")
     midSize:SetMinDesiredWidth(S.bannerMinWidth)
     midSize:SetHeightOverride(S.bannerHeight)
@@ -93,9 +93,9 @@ local function build()
     local ls = ov:AddChildToOverlay(label)
     ls:SetHorizontalAlignment(2)
     ls:SetVerticalAlignment(2)
-    -- shift the text up so it is centred on the band, which is the upper part of the art
-    local bandCentre = (ART.bandTop + ART.bandBottom) / 2
-    local lift = (ART.height / 2 - bandCentre) * 2 * k
+    -- shift the text up so it is centered on the band, which is the upper part of the art
+    local bandCenter = (ART.bandTop + ART.bandBottom) / 2
+    local lift = (ART.height / 2 - bandCenter) * 2 * k
     ls:SetPadding({ Left = 18 * k, Top = 0, Right = 18 * k, Bottom = lift })
     midSize:SetContent(ov)
     box:AddChildToHorizontalBox(midSize)

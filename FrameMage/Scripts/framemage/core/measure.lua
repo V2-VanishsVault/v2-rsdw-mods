@@ -334,6 +334,29 @@ function M.rect(w)
     return M.apply(f.T, f.L)
 end
 
+-- The widget's layout box ({ left, top, right, bottom }) before any render transforms (anyone's offsets, scales),
+-- in its root's layout space; or nil. Two widgets with no scaling panel between them can be compared directly.
+function M.layoutRect(w)
+    if not (W and w and W.valid(w)) then return nil end
+    local now = os.clock()
+    if now - memoAt > MEMO_LIFE then memo, memoAt = {}, now end
+    local ok, f = pcall(frameOf, w, 0)
+    if not ok or not f then return nil end
+    return f.L
+end
+
+-- The affine that takes a widget's layout box to the screen (its parents' layouts and render transforms and its own):
+-- { sx, sy, bx, by }, or nil. A child's natural place on screen (before its own render transform) is its parent's
+-- transform applied to the child's layoutRect.
+function M.transform(w)
+    if not (W and w and W.valid(w)) then return nil end
+    local now = os.clock()
+    if now - memoAt > MEMO_LIFE then memo, memoAt = {}, now end
+    local ok, f = pcall(frameOf, w, 0)
+    if not ok or not f then return nil end
+    return f.T
+end
+
 -- Something moved (a drag, an edit): measure afresh.
 function M.invalidate() memo, memoAt = {}, -1 end
 

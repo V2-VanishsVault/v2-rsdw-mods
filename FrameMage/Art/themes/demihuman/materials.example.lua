@@ -5,7 +5,7 @@
 -- from dumps/materials.txt (press Ctrl+F9 in game with the effect on screen); the names below are examples
 -- taken from a dump and must match exactly.
 --
---   vectors   colours: "#RRGGBB" / "#RRGGBBAA" (sRGB, as a colour picker shows) or { r, g, b, a } (linear)
+--   vectors   colors: "#RRGGBB" / "#RRGGBBAA" (sRGB, as a color picker shows) or { r, g, b, a } (linear)
 --   scalars   numbers
 --   textures  a PNG in this folder, by file name (".png" optional)
 --   force     true = re-apply whenever the game sets these parameters itself (needed for animated values)

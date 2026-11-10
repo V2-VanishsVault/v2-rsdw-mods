@@ -41,7 +41,7 @@ function M.easeOutCubic(t)
 end
 
 -- Bursts and their particles. Returns a list of particles:
---   { burst = i, t0 = start time, life, x0, y0, vx, vy, color = {r,g,b} }  (positions relative to centre)
+--   { burst = i, t0 = start time, life, x0, y0, vx, vy, color = {r,g,b} }  (positions relative to center)
 function M.plan(o, random)
     local parts = {}
     for b = 1, o.bursts do
@@ -98,11 +98,37 @@ function M.timeline(t, o)
     return out
 end
 
+-- The celebration's colors in the active theme (its `celebrate` table), each missing one Demi-human's gold.
+-- Colors are { r, g, b }. Pure. Unit-tested.
+M.GOLD = {
+    number = { 1, 0.82, 0.36 }, outline = { 0.22, 0.1, 0.02 }, glow = { 1, 0.72, 0.28 },
+    title = { 0.98, 0.92, 0.76 }, label = { 1, 0.9, 0.66 },
+}
+function M.colors(themed, palette)
+    local out = {}
+    for k, v in pairs(M.GOLD) do out[k] = (themed and themed[k]) or v end
+    out.sparks = (themed and themed.sparks) or palette
+    return out
+end
+
 -- Runtime -------------------------------------------------------------------------------------------------
 
 local ctx, log, C
 local ui -- built overlay
 local queue, playing = {}, nil
+
+-- The game's font on a text block at `size`, with an outline `outline` thick in `rgb` (none if the font won't).
+function M.setFont(t, font, size, outline, rgb)
+    if not font then return end
+    local f = { FontObject = font.FontObject, TypefaceFontName = font.TypefaceFontName, Size = size }
+    if outline then
+        f.OutlineSettings = { OutlineSize = outline, OutlineColor = { R = rgb[1], G = rgb[2], B = rgb[3], A = 1 } }
+    end
+    if not pcall(function() t:SetFont(f) end) then
+        f.OutlineSettings = nil
+        pcall(function() t:SetFont(f) end)
+    end
+end
 
 local function build()
     local h = overlay.host("Celebrate", 19000)
@@ -115,7 +141,7 @@ local function build()
     end
     local function place(widget, x, y, w, hh, autosize)
         local s = h.canvas:AddChildToCanvas(widget)
-        s:SetAnchors({ Minimum = { X = 0.5, Y = C.centreY }, Maximum = { X = 0.5, Y = C.centreY } })
+        s:SetAnchors({ Minimum = { X = 0.5, Y = C.centerY }, Maximum = { X = 0.5, Y = C.centerY } })
         s:SetAlignment({ X = 0.5, Y = 0.5 })
         s:SetPosition({ X = x, Y = y })
         if autosize then s:SetAutoSize(true) else s:SetSize({ X = w, Y = hh }) end
@@ -124,16 +150,9 @@ local function build()
     local font = require("framemage.editor.legend").gameFont() -- the game's own font, so it looks native
     local function text(size, color, outline)
         local t = new("TextBlock")
-        if font then
-            local f = { FontObject = font.FontObject, TypefaceFontName = font.TypefaceFontName, Size = size }
-            if outline then f.OutlineSettings = { OutlineSize = outline, OutlineColor = { R = 0.22, G = 0.1, B = 0.02, A = 1 } } end
-            if not pcall(function() t:SetFont(f) end) then
-                f.OutlineSettings = nil
-                pcall(function() t:SetFont(f) end)
-            end
-        end
+        M.setFont(t, font, size, outline, M.GOLD.outline)
         t:SetColorAndOpacity({ SpecifiedColor = color, ColorUseRule = 0 })
-        pcall(function() t:SetJustification(1) end) -- centre
+        pcall(function() t:SetJustification(1) end) -- center
         pcall(function() t:SetShadowOffset({ X = 2, Y = 2 }) end)
         pcall(function() t:SetShadowColorAndOpacity({ R = 0, G = 0, B = 0, A = 0.6 }) end)
         return t
@@ -177,7 +196,7 @@ local function build()
     place(label, 0, C.numberSize * 0.8, 0, 0, true)
 
     h.uw:SetVisibility(1)
-    ui = { uw = h.uw, glow = glow, sparks = sparks, flashes = flashes, icon = icon, skill = skill, number = number, label = label }
+    ui = { font = font, uw = h.uw, glow = glow, sparks = sparks, flashes = flashes, icon = icon, skill = skill, number = number, label = label }
 end
 
 local function setText(w, s) pcall(function() w:SetText(FText(s)) end) end
@@ -197,7 +216,16 @@ local function start(info)
     else
         pcall(function() ui.icon:SetVisibility(1) end)
     end
-    local parts = M.plan(C, M.rng(info.seed or os.time()))
+    -- the theme's colors: the number (fill and outline), the glow, the words, the sparks
+    local col = M.colors(ctx.themes.style().celebrate, C.palette)
+    local function rgb(c) return { R = c[1], G = c[2], B = c[3], A = 1 } end
+    pcall(function() ui.number:SetColorAndOpacity({ SpecifiedColor = rgb(col.number), ColorUseRule = 0 }) end)
+    M.setFont(ui.number, ui.font, C.numberSize, 4, col.outline)
+    pcall(function() ui.skill:SetColorAndOpacity({ SpecifiedColor = rgb(col.title), ColorUseRule = 0 }) end)
+    pcall(function() ui.label:SetColorAndOpacity({ SpecifiedColor = rgb(col.label), ColorUseRule = 0 }) end)
+    pcall(function() ui.glow:SetColorAndOpacity(rgb(col.glow)) end)
+    local plan = setmetatable({ palette = col.sparks }, { __index = C })
+    local parts = M.plan(plan, M.rng(info.seed or os.time()))
     -- tint each spark once; only position and opacity change per frame
     for i, img in ipairs(ui.sparks) do
         local p = parts[i]
@@ -205,7 +233,7 @@ local function start(info)
             pcall(function() img:SetColorAndOpacity({ R = p.color[1], G = p.color[2], B = p.color[3], A = 1 }) end)
         end
     end
-    -- place and tint each burst's flash at its burst centre
+    -- place and tint each burst's flash at its burst center
     local bursts = {}
     for _, p in ipairs(parts) do bursts[p.burst] = bursts[p.burst] or p end
     for i, img in ipairs(ui.flashes) do

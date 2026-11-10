@@ -70,8 +70,28 @@ local function dumpWidgets()
             skippedRoots = skippedRoots + 1
         end
     end
-    lines[4] = string.format("# %d game roots; skipped %d mod overlays and %d hidden branches",
-        roots, skippedRoots, skippedBranches)
+    -- list entries: a ListView makes its rows itself, outside its own widget tree, so the walk above never reaches
+    -- them (status effects, buffs, spell timers...); each visible one is dumped on its own
+    local entries = 0
+    for _, e in pairs(FindAllOf("UserWidget") or {}) do
+        local okC, cls = pcall(W.className, e)
+        if okC and cls:find("ListEntry", 1, true) and W.valid(e) and W.isInstance(e) and W.isVisible(e) then
+            entries = entries + 1
+            lines[#lines + 1] = "# list entry " .. cls
+            W.walk(e, function(w, depth)
+                local okV, vis = pcall(function() return w:GetVisibility() end)
+                local parts = { string.rep("  ", depth) .. W.name(w), "[" .. W.className(w) .. "]",
+                    "vis=" .. (okV and (VIS[vis] or tostring(vis)) or "?") }
+                local bi = brushInfo(w)
+                if bi then parts[#parts + 1] = bi end
+                lines[#lines + 1] = table.concat(parts, " ")
+                return true
+            end)
+            lines[#lines + 1] = ""
+        end
+    end
+    lines[4] = string.format("# %d game roots and %d list entries; skipped %d mod overlays and %d hidden branches",
+        roots, entries, skippedRoots, skippedBranches)
     lines[5] = ""
     ctx.fs.write(ctx.dir .. "dumps/widgets.txt", table.concat(lines, "\n"))
     return roots, #lines
@@ -175,7 +195,7 @@ function M.checklist(entries, hasPng, skinDir)
     end
     lines[#lines + 1] = string.format("## MATERIAL EFFECTS  %d done / %d", mDone, mN)
     lines[#lines + 1] = "# Shader-driven (bars, rings, highlights, vignettes). A PNG turns them into a flat image and"
-    lines[#lines + 1] = "# loses fills and animation; theme these with colour/material changes instead."
+    lines[#lines + 1] = "# loses fills and animation; theme these with color/material changes instead."
     lines[#lines + 1] = ""
     for _, g in ipairs(sorted(groups.materials)) do
         lines[#lines + 1] = string.format("### %s  (%d, uses %d)", g.name, #g.items, g.uses)
@@ -279,9 +299,71 @@ function M.materialSheet(entries)
     return lines
 end
 
+-- Item icons showing a selection border -------------------------------------------------------------------------
+-- Every item icon is drawn with one material (MI_Item_Selected) that also draws its border: the equipped / held
+-- border in the inventory, the animated selection on a crafting table. dumps/selection.txt lists, per dump (added
+-- to the end, so dumps from different screens sit side by side), each icon on screen whose border shows, where it
+-- is, and all its material settings, plus one plain icon to compare with.
+
+-- Pure: does an item icon with these material settings show a selection border? Unit-tested.
+function M.showsSelection(params)
+    local s = params and params.scalars or {}
+    return (tonumber(s["Selection Opacity"]) or 0) > 0 or (tonumber(s["MW HBorder Opacity"]) or 0) > 0
+end
+
+-- Pure: the lines for one icon's settings (sorted, so two dumps can be compared line by line). Unit-tested.
+function M.paramLines(params)
+    local out = {}
+    for _, kind in ipairs({ "scalars", "vectors", "textures" }) do
+        local keys = {}
+        for k in pairs(params[kind] or {}) do keys[#keys + 1] = k end
+        table.sort(keys)
+        for _, k in ipairs(keys) do
+            local v = params[kind][k]
+            if type(v) == "table" then
+                v = string.format("{ %.3f, %.3f, %.3f, %.3f }", v[1] or 0, v[2] or 0, v[3] or 0, v[4] or 0)
+            elseif type(v) == "number" then v = string.format("%.4g", v) end
+            out[#out + 1] = string.format("    %-8s %-40s %s", kind:sub(1, 6), k, tostring(v))
+        end
+    end
+    return out
+end
+
+local function dumpSelection()
+    local mats = ctx.features.materials
+    if not mats then return 0 end
+    local lines = { "", "== " .. os.date("%Y-%m-%d %H:%M:%S") .. " ==" }
+    local n, plain = 0, false
+    for _, img in pairs(FindAllOf("Image") or {}) do
+        if W.valid(img) and W.isVisible(img) then
+            local ok, res = pcall(function() return img.Brush.ResourceObject end)
+            local okP, parent = pcall(function() return res.Parent end)
+            if ok and okP and W.valid(res) and W.valid(parent) and W.name(parent) == "MI_Item_Selected" then
+                local okD, params = pcall(mats.describe, res)
+                if okD then
+                    local sel = M.showsSelection(params)
+                    if sel or not plain then
+                        if not sel then plain = true end
+                        local okK, key = pcall(W.key, img)
+                        lines[#lines + 1] = string.format("%s  %s", sel and "SELECTED" or "plain   ", okK and key or "?")
+                        for _, l in ipairs(M.paramLines(params)) do lines[#lines + 1] = l end
+                        if sel then n = n + 1 end
+                    end
+                end
+            end
+        end
+    end
+    local path = ctx.dir .. "dumps/selection.txt"
+    ctx.fs.write(path, (ctx.fs.read(path) or "") .. table.concat(lines, "\n") .. "\n")
+    return n
+end
+
 function M.dump()
     local roots, lines = dumpWidgets()
     local tN, mN = dumpTextures()
+    local okS, sN = pcall(dumpSelection)
+    if okS then log.info("dump: %d item icons with a selection border -> dumps/selection.txt", sN)
+    else log.warn("dump: selection borders not listed: %s", tostring(sN)) end
     log.info("dump: %d game roots, %d widget lines, %d textures + %d material effects -> %sdumps/",
         roots, lines, tN, mN, ctx.dir)
     local editor = ctx.features.editor
@@ -401,6 +483,16 @@ end
 function M.init(c)
     ctx, W, log = c, c.widgets, c.log
     c.keys.bind(c.settings.keys.dump, "dump", M.dump)
+    c.keys.bind(c.settings.keys.dumpLater, "dumpLater", function()
+        log.info("dump in 5 seconds: open the menu to capture now")
+        local editor = c.features.editor
+        if editor then editor.flash("Dumping in 5 seconds...") end
+        c.sched.later(5000, "inspector.dumpLater", function()
+            local ok, err = pcall(M.dump)
+            if not ok then log.error("delayed dump failed: %s", tostring(err)) end
+            if editor then editor.flash(ok and "Dumped: see dumps/ in the mod folder" or "Dump failed: see the log") end
+        end)
+    end)
     c.keys.bind(c.settings.keys.dumpApi, "dumpApi", function()
         local ok, err = pcall(M.dumpApi)
         if not ok then log.error("API dump failed: %s", tostring(err)) end

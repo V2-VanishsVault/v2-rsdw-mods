@@ -40,7 +40,7 @@ local function setBanner(msg) if S and S.showBanner then banner.set(msg) end end
 
 -- Pure: the banner line for a selection (unit-tested).
 function M.bannerText(key, entry)
-    if not key then return "Drag a gold bar to move it, or click anything to select it" end
+    if not key then return "Drag a title bar to move it, or click anything to select it" end
     return names.pretty(key) .. ((entry and entry.hidden) and "  (hidden)" or "")
 end
 
@@ -64,6 +64,17 @@ local flashSeq = 0
 function M.flash(msg)
     flashSeq = flashSeq + 1
     local mine = flashSeq
+    if not active then
+        -- outside the editor (an art reload, a delayed dump, Settings on its own): players don't see these - the
+        -- log has them (the banner shows them only when editor.showBanner is on)
+        log.info("%s", tostring(msg))
+        if not S.showBanner then return end
+        pcall(banner.set, msg)
+        ctx.sched.later(2500, "editor.flashClear", function()
+            if flashSeq == mine and not active then pcall(banner.set, "") end
+        end)
+        return
+    end
     if not S.showBanner then legend.flash(msg) return end
     setBanner(msg)
     ctx.sched.later(1800, "editor.flashClear", function()
@@ -256,17 +267,26 @@ end
 
 -- Everything that isn't showing: the outermost movable element of each hidden branch, plus anything you hid
 -- yourself. { {widget, title} }, sorted by name.
+-- Pure: is a hidden game piece left out of the panel? By the title it shows (editor.hiddenSkip, whole name) or
+-- its class (editor.hiddenSkipClasses, part of the name); any case. Unit-tested.
+M.skipHidden = units.skipHidden
+
 local function hiddenTargets()
     local out, seen = {}, {}
-    local function add(w)
+    -- yours = you hid it yourself: always listed, so it can be shown again
+    local function add(w, yours)
         local k = W.key(w)
-        if not seen[k] then seen[k] = true; out[#out + 1] = { widget = w, title = names.pretty(k) } end
+        if seen[k] then return end
+        seen[k] = true
+        local title = names.pretty(k)
+        local okC, cls = pcall(W.className, w)
+        if yours or not M.skipHidden(title, S.hiddenSkip, okC and cls, S.hiddenSkipClasses) then out[#out + 1] = { widget = w, title = title } end
     end
     for _, root in ipairs(gameRoots()) do
         W.walk(root, function(w)
             if W.isVisible(w) then
                 local e = layout.entry(W.key(w))
-                if e and e.hidden then add(w) return false end
+                if e and e.hidden then add(w, true) return false end
                 return true
             end
             W.walk(w, function(x)
@@ -375,7 +395,21 @@ end
 
 local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
+-- Undo (Ctrl+Z): each step is the elements one move changed and where they were before it - a drag (a group drag
+-- is one step) or a nudge. { { { w, x, y }, ... }, ... }, newest last; kept to editor.undoSteps.
+local undoStack = {}
+local function remember(items)
+    if #items == 0 then return end
+    undoStack[#undoStack + 1] = items
+    while #undoStack > (S.undoSteps or 50) do table.remove(undoStack, 1) end
+end
+local function placeOf(w)
+    local e = layout.entry(W.key(w)) or {}
+    return { w = w, x = e.x, y = e.y }
+end
+
 local function move(dx, dy)
+    if selected and W.valid(selected) then remember({ placeOf(selected) }) end
     edit(function(e) e.x = (e.x or 0) + dx; e.y = (e.y or 0) + dy end)
 end
 
@@ -394,7 +428,7 @@ local function nudge(dx, dy, big)
         local e = layout.entry(W.key(selected)) or {}
         local k = m.accScale / (e.scale or 1) -- drawn units per translation unit
         if not (k > 0.01) then k = 1 end
-        local cx, cy = grid.centre()
+        local cx, cy = grid.center()
         local ddx = dx ~= 0 and grid.snapDelta(m.left, m.right, dx, cell, cx) or 0
         local ddy = dy ~= 0 and grid.snapDelta(m.top, m.bottom, dy, cell, cy) or 0
         move(ddx / k, ddy / k)
@@ -443,7 +477,7 @@ function M.snapNearest(a, b, cell, origin)
 end
 
 -- Pure: stick deflection -> movement this frame. Deadzone removed, then squared for fine control near the
--- centre and speed at full tilt. Unit-tested.
+-- center and speed at full tilt. Unit-tested.
 function M.stickMove(v, deadzone, speed, dt)
     local a = math.abs(v)
     if a <= deadzone then return 0 end
@@ -453,6 +487,53 @@ end
 
 local drag -- { ex, ey, nx, ny, k, x0, y0, moved, source = "mouse"|"stick" }
 
+-- The group: elements Ctrl+clicked by their title bars, dragged together (each by the same distance on screen).
+-- { fullName -> widget }. Emptied when a group drag ends.
+local group = {}
+local function inGroup(w) return w and W.valid(w) and group[W.fullName(w)] ~= nil end
+local function groupSize() local n = 0 for _ in pairs(group) do n = n + 1 end return n end
+local function ctrlHeld()
+    return ctx.keys.isDown and (ctx.keys.isDown("LeftControl") or ctx.keys.isDown("RightControl"))
+end
+local function toggleGroup(w)
+    local full = W.fullName(w)
+    if group[full] then group[full] = nil else group[full] = w end
+    log.info("editor: %s %s the group (%d in it)", tostring(titleFor(w)), group[full] and "added to" or "taken out of",
+        groupSize())
+    refreshHandles() -- (the grouped bars turn gold: no message, which would widen the key list)
+end
+
+-- Ctrl+Z: the last move undone - every element it changed back where it was.
+local function undo()
+    local step = table.remove(undoStack)
+    if not step then M.flash("Nothing to undo") return end
+    for _, it in ipairs(step) do
+        if W.valid(it.w) then
+            local function back(e) e.x = it.x; e.y = it.y end
+            if it.w == selected then edit(back) else pcall(layout.edit, it.w, back) end
+        end
+    end
+    unitsAt = -1
+    refresh()
+    refreshHandles()
+end
+M.undo = undo
+
+-- Each group member's start, for a group drag: its offset and how many screen units a unit of offset is.
+local function groupStart()
+    local out = {}
+    for _, w in pairs(group) do
+        if W.valid(w) then
+            local e = layout.entry(W.key(w)) or {}
+            local m = geometry.rect(w)
+            local k = (m and m.accScale or 1) / (e.scale or 1)
+            if not (k > 0.01) then k = 1 end
+            out[#out + 1] = { w = w, ex = e.x or 0, ey = e.y or 0, k = k }
+        end
+    end
+    return out
+end
+
 local function beginDrag(source, x0, y0)
     if not (selected and W.valid(selected)) then return end
     local e = layout.entry(W.key(selected)) or {}
@@ -461,19 +542,52 @@ local function beginDrag(source, x0, y0)
     if not (k > 0.01) then k = 1 end
     drag = { ex = e.x or 0, ey = e.y or 0, nx = e.x or 0, ny = e.y or 0, k = k, x0 = x0, y0 = y0, moved = false,
         source = source }
+    if source == "mouse" and groupSize() > 0 and inGroup(selected) then
+        drag.group = groupStart()
+        -- the layout re-applies saved offsets to the elements it tracks: not to the group while it's dragged
+        layout.skipSet = {}
+        for full in pairs(group) do layout.skipSet[full] = true end
+    end
+    -- while it's held, the other elements' bars step aside: they'd cover what you're lining it up with (they come
+    -- back on release - onMouseUp refreshes them)
+    if source == "mouse" then handles.hide() end
 end
 
 local function endDrag()
     local d = drag
     drag = nil
     unitsAt = -1 -- something moved: the next bar refresh measures afresh
+    if d and d.group then
+        layout.skipSet = nil
+        -- a group drag: every member saved where it was dropped, and the group let go
+        if d.moved and d.last then
+            local before = {}
+            for _, m in ipairs(d.group) do
+                if W.valid(m.w) then before[#before + 1] = { w = m.w, x = m.ex ~= 0 and m.ex or nil, y = m.ey ~= 0 and m.ey or nil } end
+            end
+            remember(before)
+            for _, m in ipairs(d.group) do
+                if W.valid(m.w) then
+                    local nx, ny = m.ex + d.last.dx / m.k, m.ey + d.last.dy / m.k
+                    if m.w == selected then
+                        edit(function(e) e.x = nx; e.y = ny end)
+                    else
+                        pcall(layout.edit, m.w, function(e) e.x = nx; e.y = ny end)
+                    end
+                end
+            end
+        end
+        group = {}
+        refreshHandles()
+        return
+    end
     if not (d and d.moved and selected and W.valid(selected)) then return end
     local nx, ny = d.nx, d.ny
     local grid = ctx.features.grid
     if grid and grid.snapping() then
         local r = geometry.rect(selected)
         if r and r.right > r.left then
-            local cx, cy = grid.centre()
+            local cx, cy = grid.center()
             local cell = grid.cell(false)
             nx = nx + M.snapNearest(r.left, r.right, cell, cx) / d.k
             ny = ny + M.snapNearest(r.top, r.bottom, cell, cy) / d.k
@@ -486,6 +600,7 @@ local function endDrag()
         local fx, fy = M.keepVisible(r, sw, sh, S.keepOnScreen or 48)
         nx, ny = nx + fx / d.k, ny + fy / d.k
     end
+    remember({ { w = selected, x = d.ex ~= 0 and d.ex or nil, y = d.ey ~= 0 and d.ey or nil } })
     edit(function(e) e.x = nx; e.y = ny end)
 end
 
@@ -506,20 +621,34 @@ local function dragTo(nx, ny)
     pcall(function() selected:SetRenderTranslation({ X = nx, Y = ny }) end) -- live; saved on release
 end
 
+
+local solo = false -- the Settings panel open on its own (F4 in normal play), without the editor
+
 local function onMouseDown(x, y, button)
+    if solo then
+        if button == "LeftMouseButton" then settingsPanel.onDown(x, y) end
+        return
+    end
     if button == "LeftMouseButton" and legend.onDown(x, y) then return end -- the hotkey list's own title bar / body
     if button == "LeftMouseButton" and settingsPanel.onDown(x, y) then return end -- the Settings panel (on top)
     if button == "LeftMouseButton" and hidden.onDown(x, y) then return end -- the hidden-elements panel
     if button == "RightMouseButton" then go(true) return end -- right-click: the panel around it
     if button ~= "LeftMouseButton" then return end
     local bar = frame.barRect()
-    if selected and bar and geometry.contains(bar, x, y) then
+    local onFrame = selected and bar and geometry.contains(bar, x, y)
+    local w = (not onFrame) and handles.at(x, y) or nil
+    -- Ctrl+click on a title bar: in or out of the group (no drag)
+    if (onFrame or w) and ctrlHeld() then
+        toggleGroup(onFrame and selected or w)
+        return
+    end
+    if onFrame then
         beginDrag("mouse", x, y)
         return
     end
-    -- any element's own gold bar: select it and start dragging in one go
-    local w = handles.at(x, y)
+    -- any element's own gold bar: select it and start dragging in one go (with the group, if it's in it)
     if w then
+        if groupSize() > 0 and not inGroup(w) then group = {} end -- a bar outside the group: the group's let go
         select(w)
         beginDrag("mouse", x, y)
         return
@@ -528,6 +657,10 @@ local function onMouseDown(x, y, button)
 end
 
 local function onMouseUp(_, _, button)
+    if solo then
+        if button == "LeftMouseButton" then settingsPanel.onUp() end
+        return
+    end
     if button == "LeftMouseButton" and legend.onUp() then return end
     if button == "LeftMouseButton" and settingsPanel.onUp() then return end
     if button == "LeftMouseButton" and hidden.onUp() then return end
@@ -542,6 +675,12 @@ local function dragTick()
     local now = os.clock()
     local dt = math.min(now - lastDragTick, 0.1)
     lastDragTick = now
+    if solo then
+        mouse.tick()
+        settingsPanel.tick()
+        if settingsPanel.isDragging() then settingsPanel.dragTick(geometry.mouse()) end
+        return
+    end
     if not active then return end
     mouse.tick()
     legend.tick()
@@ -555,7 +694,14 @@ local function dragTick()
         if x then
             local dx, dy = x - drag.x0, y - drag.y0
             if math.abs(dx) + math.abs(dy) > 2 then drag.moved = true end
-            if drag.moved then dragTo(drag.ex + dx / drag.k, drag.ey + dy / drag.k) end
+            if drag.moved and drag.group then
+                drag.last = { dx = dx, dy = dy }
+                for _, m in ipairs(drag.group) do
+                    if W.valid(m.w) then
+                        pcall(function() m.w:SetRenderTranslation({ X = m.ex + dx / m.k, Y = m.ey + dy / m.k }) end)
+                    end
+                end
+            elseif drag.moved then dragTo(drag.ex + dx / drag.k, drag.ey + dy / drag.k) end
         end
         return
     end
@@ -614,15 +760,54 @@ local function close(save)
     log.info("editor off")
 end
 
+-- The Settings panel on its own, in normal play: the mouse cursor shows and the game's input pauses while it's
+-- open (as in the editor), and nothing else of the editor appears.
+local function openSolo()
+    if active or solo then return end
+    solo = true
+    setEditInput(true)
+    mouse.open()
+    if not settingsPanel.open() then
+        log.warn("settings: the panel could not be shown")
+    end
+    log.info("settings on (outside the editor)")
+end
+
+-- (fromPanel: the panel closed itself, from its Close button)
+local function closeSolo(fromPanel)
+    if not solo then return end
+    solo = false
+    if not fromPanel then settingsPanel.close() end
+    mouse.close()
+    setEditInput(false)
+    log.info("settings off")
+end
+
+-- F4: the Settings panel - inside the editor it opens over it; in normal play, on its own
+local function toggleSettings()
+    if active then settingsPanel.toggle()
+    elseif solo then closeSolo()
+    else openSolo() end
+end
+
 local function toggle()
+    if solo then
+        -- F9 with Settings open on its own: the editor opens round it, Settings staying open
+        closeSolo()
+        open()
+        settingsPanel.open()
+        return
+    end
     if active then close(true) else open() end
 end
 
 function M.isActive() return active end
 
+-- Is the Settings panel open on its own (outside the editor)?
+function M.isSettingsOpen() return solo end
+
 -- Close (saving the layout), e.g. when the whole mod is switched off.
 function M.close() if active then close(true) end end
-function M.setEnabled(on) if not on then M.close() end end
 
 -- Hotkeys changed (the Settings panel): the legend is rebuilt the next time it is shown.
 function M.handlesChanged() refreshHandles() end
@@ -639,10 +824,13 @@ function M.init(c)
     S = c.settings.editor
     banner.init(c, S)
     handles.init(c, S)
+    handles.setMarked(function(w) return inGroup(w) end)
     units.init(W, geometry, names, S, function(cls) return M.isAtom(cls, S.ignoreClasses, S.forceSplit) end)
     inputblock.init(c)
     hidden.init(c, S, pickHidden, saveHidden)
-    settingsPanel.init(c, S, function() refresh() end)
+    settingsPanel.init(c, S, function()
+        if solo then closeSolo(true) else refresh() end
+    end)
     mouse.init(c, { down = onMouseDown, up = onMouseUp, wheel = function(x, y, d)
         if not settingsPanel.onWheel(x, y, d) then hidden.onWheel(x, y, d) end
     end })
@@ -679,8 +867,12 @@ function M.init(c)
     ed("closeEditor", function()
         if settingsPanel.isOpen() then settingsPanel.close() else close(true) end
     end)
-    ed("settings", function() settingsPanel.toggle() end)
+    -- F4 works in normal play too (the panel on its own); Escape closes it there
+    c.keys.bind(K.settings, "settings", toggleSettings, nil, { setting = "settings", when = function() return c.enabled end })
+    c.keys.bind(K.closeEditor, "closeSettings", function() closeSolo() end, nil,
+        { setting = "closeEditor", when = function() return solo end })
     ed("showHidden", toggleHiddenPanel)
+    ed("undo", function() undo() end)
 
     -- controller (Xbox names; the same buttons on other pads)
     ed("padNext", function() cycle(1) end)
@@ -710,13 +902,27 @@ function M.init(c)
     -- theme changed: rebuild Frame Mage's own panels in the new style (reopening the editor if it's open)
     local function restyle()
         local wasOpen = active
+        -- the Settings panel (and the hidden-elements panel) come back too: a stone picked in Settings shouldn't
+        -- close Settings (it reopens on the same tab, where it was)
+        local settingsWasOpen = settingsPanel.isOpen()
+        local hiddenWasOpen = hidden.isOpen()
+        if solo then
+            -- Settings open on its own: rebuilt in the new style, staying open
+            settingsPanel.restyle()
+            settingsPanel.open()
+            return
+        end
         if wasOpen then close(true) end
         legend.invalidate()
         hidden.restyle()
         settingsPanel.restyle()
         handles.restyle()
         frame.restyle()
-        if wasOpen then open() end
+        if wasOpen then
+            open()
+            if settingsWasOpen then settingsPanel.open() end
+            if hiddenWasOpen then toggleHiddenPanel() end
+        end
     end
     c.events.on("themechanged", restyle)
     c.events.on("stylechanged", restyle) -- e.g. the panel stone: only Frame Mage's own panels change
@@ -738,12 +944,17 @@ function M.init(c)
         drag = nil
         layout.skipFull = nil
         list, index, selected = {}, 0, nil
+        undoStack = {}
         banner.forget()
         if active then
             active = false
             layout.save()
             setEditInput(false)
             log.info("editor closed: world changed")
+        end
+        if solo then
+            solo = false
+            setEditInput(false)
         end
     end)
 
@@ -764,7 +975,10 @@ function M.init(c)
             if u and u.empty then
                 -- nothing showing: a stand-in with example content, where the element will appear
                 local at = r or u.rect
-                r = { left = at.left, top = at.top, right = at.left + S.placeholderW, bottom = at.top + S.placeholderH }
+                -- the element's own box when the game gives it room to grow into (Item Pickups: a tall column),
+                -- else a stand-in of the usual size
+                local own = geometry.rect(selected)
+                r = units.standIn(at, own, S.placeholderW, S.placeholderH, sw and sw * sh or 1920 * 1080)
             end
             frame.place(r, S, titleFor(selected), u and u.empty)
         else

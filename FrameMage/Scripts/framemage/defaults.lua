@@ -2,7 +2,6 @@
 -- Key names are Unreal key names (F9, PageUp, Left, Equals, LeftBracket, LeftMouseButton ...); the older UE4SS
 -- names (PAGE_UP, OEM_PLUS ...) also work. Modifiers: CTRL, SHIFT, ALT.
 return {
-    enabled = true, -- master switch (also in the Settings panel); off hands everything back to the game
     logLevel = "info", -- debug | info | warn | error
 
     -- Turn a feature off to isolate a problem (e.g. a crash). Removed/false features never load.
@@ -12,6 +11,17 @@ return {
     -- Frame Mage's own widgets shown instead of the game's (features/replace.lua)
     replace = {
         levelUp = true, -- level-up popup -> fireworks celebration
+    },
+
+    -- the inventory window (features/inventory.lua); both take effect at the next start
+    inventory = {
+        tipGap = 6, -- a tooltip beside a window keeps this far clear of its frame (UI units)
+        windowGap = 24, -- a station or chest window opens this far right of where the game puts it, clear of the inventory
+        restyle = true, -- the inventory and chest windows in the chosen panel stone, a frame of gold light and the
+                        -- top-line flourish; their checkboxes and text boxes in the same light border; tooltips
+                        -- as a band of glass edged with light, a flourish on each edge
+        separateHotbar = true, -- a HUD hotbar of its own (same slots as the window's top row), moved on its own
+        equippedGlow = true, -- equipped / held items get a crafting table's animated gold border, not the orange square
     },
 
     -- DING! on level-up: a synthesized bell (features/ding.lua)
@@ -31,7 +41,7 @@ return {
     },
 
     celebrate = {
-        centreY = 0.36, -- vertical position, fraction of the screen from the top
+        centerY = 0.36, -- vertical position, fraction of the screen from the top
         duration = 3.4, -- seconds, including the fade-out
         outro = 0.45,
         zoomTime = 0.65,
@@ -45,7 +55,7 @@ return {
         bursts = 5,
         perBurst = 30,
         burstTimes = { 0.12, 0.42, 0.72, 1.02, 1.38 },
-        spreadMinX = 220, spreadMaxX = 520, -- burst centres, UI units from the middle
+        spreadMinX = 220, spreadMaxX = 520, -- burst centers, UI units from the middle
         spreadMinY = 60, spreadMaxY = 300,
         speedMin = 220, speedMax = 520,
         lifeMin = 1.1, lifeMax = 1.7,
@@ -72,7 +82,7 @@ return {
         badges = true, -- the game's bar icons on a dark disc with a gold ring
         ringSize = 38, -- the ring's size (UI units; the game's icons are 33)
         iconScale = 0.78, -- the icon's size on its ring
-        ringGap = 2, -- (unused since rowPitch) space between neighbouring rings
+        ringGap = 2, -- (unused since rowPitch) space between neighboring rings
         rowPitch = 46, -- each bar's row height (UI units), with or without rings: rings 38 high sit 8 apart (keep
         -- it above ringSize + shadowOffsetY so neither the rings nor their shadows touch)
         taper = true, -- taller bars with a pointed right end
@@ -82,21 +92,46 @@ return {
         ringShadow = true, -- a soft shadow from each ring onto its bar
         -- another game icon on a ring (bar icon widget name -> game texture name): stamina shows the Agility skill
         iconOverrides = { StaminaIcon = "T_Icon_Tag_Skill_Agility" },
-        hideUpkeepDivider = true, -- hide the line between the survival gauges and the buffs (they then move apart)
+        statusGauges = true, -- timed status effects (Cosiness, the weather...) as round gauges like the survival gauges
+        gaugeRims = true, -- the theme's rim round every gauge (survival, buffs, status effects)
+        statusGaugeSize = 64, -- their ring's size (UI units)
+        weightColors = true, -- the load gauge (inventory shortcut) and weight bar: green, yellow, orange, red, pulsing red past full
+        weightIconSize = 28, -- the theme's weight icon beside the inventory weight bar (UI units)
+        weightRim = 3, -- how far the weight bar sits inside its themed trough's rim (UI units)
+        menuShortcutSize = 64, -- the menu shortcuts' circles (chat, map, spells, building, inventory): 0 = the game's size
+        statusOrder = "timed", -- "game" (as listed), "timed" (ones that run out first) or "lasting" (on / off ones first)
+        statusGrow = "down", -- "down" or "up": which way the column grows as effects appear (the first stays put)
+        statusIconScale = 0.7,
+        statusBadgeSize = 40, -- an effect without a timer (Sheltered): its icon in the theme's icon ring, this size
+        statusBadgeIconScale = 0.6, -- their icon's size in the ring (inside it, not over it)
+        statusGap = 4, -- space between status effects (UI units): as close as the vitals' icons
+        percentFontSize = 10, -- their size (matching the health number)
+        percentText = true,
+        hideRateLabels = true, -- the game's rate labels beside the bars (STATS, HP/S, SPEC/S) never show -- the stamina and special bars show their fill as a percentage (the health bar has its value)
+        survivalLayout = "row", -- "row": the game's; "stacked": water / food / exhaustion in a column beside the vitals
+        survivalGap = 28, -- (stacked) space between the bars' points and the gauges
+        survivalBuffGap = 14, -- (stacked) space between the gauges' values and the buffs
+        survivalRingSize = 40, -- (stacked) each gauge's ring, a fixed size (UI units)
+        survivalMaxScale = 1, -- (stacked) the gauges never grow beyond their own size
+        survivalTextScale = 1.35,
+        survivalShrinkBuffs = false, -- (stacked) shrink the buffs to the gauges' ring size (their numbers get hard to read)
+        textShadowOffset = 1.5, -- the drop shadow under the survival values and buff durations (UI units)
+        textShadowOpacity = 0.85,
         hideKeyHints = false, -- hide the key hints (Block, Attack, Special Attack...)
-        iconNudgeY = 1, -- the icons on the rings sit this much lower (UI units) to look centred
-        durabilityColours = true, -- item durability bars: green (100%) -> yellow -> orange -> red (25%)
+        iconNudgeY = 1, -- the icons on the rings sit this much lower (UI units) to look centered
+        durabilityColors = true, -- item durability bars: green (100%) -> yellow -> orange -> red (25%)
         shadowOffsetX = 4, shadowOffsetY = 3, -- where the shadow falls (UI units, right and down)
         shadowOpacity = 0.7,
         taperWidth = 16, -- length of the point (UI units)
-        endWidth = 3, -- length of the flat end when shaped bars are off (UI units)
-        -- the end (point or flat) is painted with the bar's own material, in strips this many UI units tall, each
-        -- showing the last tipUV of the bar's length (false: a plain colour, tipGain / tipLift, instead)
-        tipFromMaterial = true,
+        endWidth = 6, -- length of the flat end when shaped bars are off (UI units): its art is 16 px wide, its edge as thick as the bar's
+        -- how the end (point or flat) gets its color, shown when the bar is full:
+        --   "copy"  - the bar's own paint continued past its end: strips tipStripHeight UI units tall, each clipped
+        --             to its piece of the shape and holding a full-size copy of the bar (a cropped copy drew black)
+        --   "solid" - a plain shape in the material's main color * tipGain + tipLift
+        tipPaint = "copy",
         tipStripHeight = 1,
-        tipUV = 0.03,
-        -- the point's colour when full: the material's main colour * tipGain + tipLift (the material draws brighter
-        -- than its main colour; raise these if the point looks darker than the bar)
+        -- the point's color when full: the material's main color * tipGain + tipLift (the material draws brighter
+        -- than its main color; raise these if the point looks darker than the bar)
         tipGain = 1.2,
         tipLift = 0.03,
     },
@@ -114,18 +149,18 @@ return {
         color = { 1, 0.85, 0.45 },
         minorAlpha = 0.08,
         majorAlpha = 0.22,
-        centreColor = { 0.25, 0.85, 1 }, -- centre axes: cyan, so the middle stands out from the gold grid
-        centreAlpha = 0.75,
-        centreThickness = 2,
-        centreDot = 6, -- square at the centre, in UI units
-        centreAnimate = true, -- pulses travel from the centre to each screen edge
-        centreSegments = 24, -- per arm; more = smoother gradient
-        centreWaves = 2, -- bright pulses visible on each arm at once
-        centreSpeed = 0.6, -- pulses per second leaving the centre
-        centreFade = 0.7, -- how much dimmer the arms get toward the edges (0 = no gradient)
-        centreMinLevel = 0.35, -- brightness between pulses
-        centrePulseColor = { 1, 1, 1 }, -- pulses shift toward this colour
-        centreFrameMs = 33,
+        centerColor = { 0.25, 0.85, 1 }, -- center axes: cyan, so the middle stands out from the gold grid
+        centerAlpha = 0.75,
+        centerThickness = 2,
+        centerDot = 6, -- square at the center, in UI units
+        centerAnimate = true, -- pulses travel from the center to each screen edge
+        centerSegments = 24, -- per arm; more = smoother gradient
+        centerWaves = 2, -- bright pulses visible on each arm at once
+        centerSpeed = 0.6, -- pulses per second leaving the center
+        centerFade = 0.7, -- how much dimmer the arms get toward the edges (0 = no gradient)
+        centerMinLevel = 0.35, -- brightness between pulses
+        centerPulseColor = { 1, 1, 1 }, -- pulses shift toward this color
+        centerFrameMs = 33,
     },
 
     share = {
@@ -146,7 +181,7 @@ return {
 
         lockInput = true, -- show the mouse cursor and pause game input while the editor is open
 
-        -- selection frame (colour is linear RGB; edges are thin, corner brackets heavier)
+        -- selection frame (color is linear RGB; edges are thin, corner brackets heavier)
         frameColor = { 1, 1, 1 },
         frameEdgeAlpha = 0.6,
         frameEdge = 1,
@@ -169,11 +204,14 @@ return {
 
         -- hotkey legend (left edge of the screen while the editor is open)
         showLegend = true,
-        legendKeySize = 26, -- keycap size in UI units: every key is this square, like the game's
-        legendCapPadX = 3, -- space either side of the key name inside a cap
+        legendKeySize = 26, -- keycap height in UI units
+        legendKeyWidth = 44,
+        buttonOrnamentSize = 9, -- the ornament at each end of a filled button (UI units)
+        buttonOrnamentGap = 6, -- between an ornament and the button's text -- keycap width: wider than tall, like the game's own prompts (most names fit)
+        legendCapPadX = 7, -- space either side of the key name inside a cap (a scrolling name stays inside the rim)
         legendMarqueeSpeed = 14, -- a name too wide for its cap scrolls at this speed (UI units / second)
         legendMarqueePause = 1.2, -- seconds it rests at each end
-        legendCapFontSize = 11,
+        legendCapFontSize = 9, -- small enough that the cap's rim reads as a rim, not as [ ]
         legendLabelSize = 13,
         legendHeadingSize = 13,
         legendSectionSize = 10,
@@ -186,7 +224,7 @@ return {
 
         -- title bar: the gold drag handle above the selection
         titleColor = { 0.86, 0.66, 0.26 },
-        titleFontSize = 16,
+        titleFontSize = 12, -- (the same as the other elements' bars: picking one mustn't make it grow)
         titlePadX = 14,
         titlePadY = 5,
         titleGap = 3, -- between the bar and the frame
@@ -209,8 +247,22 @@ return {
         hiddenWidth = 300,
         -- the Settings panel (F4)
         settingsWidth = 540,
+        settingsX = false, settingsY = false, -- where it was last dragged to (false: top middle of the screen)
         settingsValueWidth = 200,
+        settingsTipLines = 4, -- lines kept free for the hovered setting's explanation (a longer one makes the panel taller)
         hiddenRows = 14, -- names visible at once (the wheel scrolls)
+        -- left out of that panel (by the name it shows): game pieces that aren't worth showing on their own
+        hiddenSkip = { "Compass Marker", "Composite Variable Menu", "Canvas Panel" },
+        -- elements never offered in the editor at all (by key): the HUD's own canvas holds the other elements
+        listSkip = { "WBP_HUD_RootWidget/CanvasPanel" },
+        -- elements never offered for picking or PgUp / PgDn, by title (and numbered copies: "Compass Marker 2")
+        selectSkip = { "Compass Marker" },
+        -- ... and by class or path (part of the name, any case): every reticle
+        selectSkipClasses = { "Reticle" },
+        -- ...and by class (any case, part of the name): reticles (never moved), durability bars (part of their
+        -- item), and the inventory and chest windows' pieces (they stay as Frame Mage styles them)
+        hiddenSkipClasses = { "Reticle", "DurabilityBar", "WBP_Inventory_", "WBP_Panel_Inventory",
+            "WBP_WorldActorInventory" },
 
         -- the element list (PgUp / PgDn) and click-picking skip small building blocks whose class contains any of
         -- these (key-prompt icons, text wrappers, tooltips); click a bigger part or use Home / End to reach them
@@ -224,6 +276,8 @@ return {
             WBP_HUD_InputsLegend_C = true,      -- key hints | menu shortcuts
             WBP_InputLegend_World_C = true,
             WBP_SurvivalCore_Upkeep_C = true,   -- survival gauges | buffs
+            WBP_Inventory_MainPanel_C = true,   -- only a wrapper round the inventory window: the window is the element
+            WBP_HUD_RootWidget_C = true,        -- the whole HUD: its pieces are the elements, never one big group
         },
         renames = {
             GameInputs = "Key Hints",
@@ -233,7 +287,9 @@ return {
             VitalsBarOverlay = "Vital Bars",
             WBP_SurvivalCore_Upkeep = "Survival",
             StatBarVerticalBox = "Vital Bars",
-            QuickAccessBar = "Hotbar",
+            QuickAccessBar = "Inventory Hotbar", -- the row inside the inventory window
+            WBP_Inventory_QuickAccesBar = "Hotbar", -- the separate HUD hotbar (inventory.separateHotbar)
+            ["WBP_HUD_PlayerVitalsBars/WBP_SurvivalCore_Upkeep/HorizontalBox_1"] = "Survival Gauges", -- (a whole key)
         },
 
         -- controller: the left stick moves the selection
@@ -250,6 +306,9 @@ return {
         edit = "F9",
         closeEditor = "Escape", -- also closes the editor (saving); the pause menu stays shut for that press
         dump = "CTRL+F9",
+        -- the same dumps 5 seconds later: Frame Mage's keys don't reach it while a game menu (the inventory...) is
+        -- open, so press this, then open the menu
+        dumpLater = "CTRL+SHIFT+F9",
         reloadArt = "CTRL+F10",
         -- developer: the game's functions for hotbars / items / spells / bags -> dumps/api.txt. Numpad +: Ctrl+F11 is
         -- taken by Windows (windowed / full screen), and Alt+F9 starts recording in NVIDIA's overlay
@@ -280,7 +339,8 @@ return {
         toggleGrid = "Insert",
         showHidden = "H", -- add hidden elements to the PgUp / PgDn list (and back)
         legend = "F3", -- slide the hotkey list closed / open
-        settings = "F4", -- the Settings panel (editor)
+        settings = "F4", -- the Settings panel: in normal play (on its own) and in the editor
+        undo = "CTRL+Z", -- undo the last move (a drag, a group drag or a nudge)
 
         -- controller (Xbox names; the same buttons on other pads). Both sticks clicked opens / closes the editor.
         padEdit = "Gamepad_LeftThumbstick&Gamepad_RightThumbstick",

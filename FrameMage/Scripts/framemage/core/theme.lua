@@ -21,15 +21,15 @@ function M.parseColor(v)
     if type(v) == "table" then
         local r, g, b, a = v[1] or v.R or v.r, v[2] or v.G or v.g, v[3] or v.B or v.b, v[4] or v.A or v.a
         if type(r) ~= "number" or type(g) ~= "number" or type(b) ~= "number" then
-            return nil, "colour table needs 3 or 4 numbers"
+            return nil, "color table needs 3 or 4 numbers"
         end
         return { R = r, G = g, B = b, A = type(a) == "number" and a or 1 }
     end
-    if type(v) ~= "string" then return nil, "colour must be \"#RRGGBB\" or { r, g, b, a }" end
+    if type(v) ~= "string" then return nil, "color must be \"#RRGGBB\" or { r, g, b, a }" end
     local hex = v:match("^#?(%x+)$")
-    if not hex then return nil, "bad hex colour " .. v end
+    if not hex then return nil, "bad hex color " .. v end
     if #hex == 3 or #hex == 4 then hex = hex:gsub("(%x)", "%1%1") end
-    if #hex ~= 6 and #hex ~= 8 then return nil, "hex colour needs 3, 4, 6 or 8 digits: " .. v end
+    if #hex ~= 6 and #hex ~= 8 then return nil, "hex color needs 3, 4, 6 or 8 digits: " .. v end
     local function byte(i) return tonumber(hex:sub(i, i + 1), 16) / 255 end
     return {
         R = srgbToLinear(byte(1)), G = srgbToLinear(byte(3)), B = srgbToLinear(byte(5)),
@@ -37,9 +37,9 @@ function M.parseColor(v)
     }
 end
 
--- Validates a raw theme table. Returns normalised entries and a list of problems (bad entries are skipped,
+-- Validates a raw theme table. Returns normalized entries and a list of problems (bad entries are skipped,
 -- never fatal: one typo must not disable the whole skin).
-function M.normalise(raw)
+function M.normalize(raw)
     local out, problems = {}, {}
     if type(raw) ~= "table" then return out, { "theme file must return a table" } end
     for key, spec in pairs(raw) do

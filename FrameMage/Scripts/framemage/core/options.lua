@@ -11,17 +11,17 @@ M.TABS = {
     { id = "editor", label = "Editor" },
     { id = "fun", label = "Celebrations" },
     { id = "keys", label = "Keys" },
-    { id = "share", label = "Layouts" },
+    { id = "share", label = "Share" },
 }
 
 -- Row types: toggle, choice (options + labels), number / slider (min, max, step), key, button (action), info.
 M.SCHEMA = {
     -- Look
-    { tab = "look", key = "Enabled", type = "toggle", label = "Frame Mage on", setting = "enabled",
-        tooltip = "Off: every moved, faded or hidden element and all reskinned art go back to the game's own." },
     { tab = "look", key = "Theme", type = "choice", label = "Theme", setting = "theme",
         options = { "demihuman", "warrior", "ranger", "wizard" },
-        labels = { demihuman = "Demi-human", warrior = "Warrior (soon)", ranger = "Ranger (soon)", wizard = "Wizard (soon)" },
+        labels = { demihuman = "Demi-human", warrior = "Warrior", ranger = "Ranger", wizard = "Wizard (soon)" },
+        -- the game's own combat-style icons, before the name
+        icons = { warrior = "T_Icon_Tag_Skill_Attack", wizard = "T_Icon_Tag_Skill_Magic", ranger = "T_Icon_Tag_Skill_Ranged" },
         tooltip = "The look of reskinned game art and of Frame Mage's own panels." },
     { tab = "look", key = "Stone", type = "choice", label = "Panel stone", setting = "stone",
         options = { "moonstone", "slate", "marble" },
@@ -31,22 +31,33 @@ M.SCHEMA = {
         options = { "default", "combat", "minimal" },
         labels = { default = "Default", combat = "Combat", minimal = "Minimal" },
         tooltip = "Which saved layout is in use." },
-    { tab = "look", key = "DurabilityColours", type = "toggle", label = "Colour durability bars",
-        setting = "bars.durabilityColours", tooltip = "Green at full, then yellow, orange and red as items wear." },
-    { tab = "look", key = "HideUpkeepDivider", type = "toggle", label = "Hide the survival / buffs divider",
-        setting = "bars.hideUpkeepDivider" },
+    { tab = "look", type = "button", label = "Reset this layout", action = "resetLayout", confirm = true,
+        tooltip = "Puts every element back where the game has it. The old layout is kept in layouts/<layout>.before-reset.lua." },
+    { tab = "look", key = "DurabilityColors", type = "toggle", label = "Color durability bars",
+        setting = "bars.durabilityColors", tooltip = "Green at full, then yellow, orange and red as items wear." },
     { tab = "look", key = "HideKeyHints", type = "toggle", label = "Hide the key hints", setting = "bars.hideKeyHints",
         tooltip = "Hides Block / Attack / Special Attack... The menu shortcuts stay." },
 
     -- Vitals
     { tab = "vitals", key = "BarStyle", type = "choice", label = "Bar style", setting = "bars.style",
         options = { "flat", "bevel", "facet" },
-        labels = { flat = "Flat", bevel = "Bevelled", facet = "Faceted" } },
+        labels = { flat = "Flat", bevel = "Beveled", facet = "Faceted" } },
     { tab = "vitals", key = "BarTaper", type = "toggle", label = "Shaped bars (pointed end)", setting = "bars.taper" },
-    { tab = "vitals", key = "TipGain", type = "slider", label = "Point brightness", setting = "bars.tipGain",
-        min = 0.5, max = 2.5, step = 0.05, percent = true,
-        tooltip = "Match the full bar's point to the bar's colour." },
-    { tab = "vitals", key = "BarOutline", type = "toggle", label = "Gold edge", setting = "bars.outline" },
+    { tab = "vitals", key = "BarOutline", type = "toggle", label = "Bar edge", setting = "bars.outline" },
+    { tab = "vitals", key = "PercentText", type = "toggle", label = "Stamina / special as %", setting = "bars.percentText" },
+    { tab = "vitals", key = "StatusGauges", type = "toggle", label = "Status effects as gauges", setting = "bars.statusGauges",
+        tooltip = "Cosiness, Sheltered, the weather and the rest as round gauges like the buffs (takes effect as they next appear)." },
+    { tab = "vitals", key = "WeightColors", type = "toggle", label = "Color the load gauge", setting = "bars.weightColors",
+        tooltip = "The inventory shortcut's gauge and the inventory's weight bar: green to 50%, yellow to 75%, orange to 90%, red to full, pulsing red when overloaded." },
+    { tab = "vitals", key = "StatusOrder", type = "choice", label = "Status effect order", setting = "bars.statusOrder",
+        options = { "game", "timed", "lasting" }, labels = { game = "Game", timed = "Timed first", lasting = "Lasting first" },
+        tooltip = "Game: the order the game lists them. Timed first: the ones that run out (Cosiness, overeating...) before the ones that last (Sheltered). Lasting first: the other way round." },
+    { tab = "vitals", key = "StatusGrow", type = "choice", label = "Status effects grow", setting = "bars.statusGrow",
+        options = { "down", "up" }, labels = { down = "Down", up = "Up" },
+        tooltip = "Which way the column of status effects grows as more appear: the first one stays where you put it." },
+    { tab = "vitals", key = "SurvivalLayout", type = "choice", label = "Survival gauges", setting = "bars.survivalLayout",
+        options = { "row", "stacked" }, labels = { row = "Standard", stacked = "Stacked" },
+        tooltip = "Stacked: water, food and exhaustion in a column beside the vital bars, each level with its bar, and the buffs in a row after them." },
     { tab = "vitals", key = "BarBadges", type = "toggle", label = "Icons on rings", setting = "bars.badges" },
     { tab = "vitals", key = "RingShadow", type = "toggle", label = "Ring shadows", setting = "bars.ringShadow" },
 
@@ -55,8 +66,8 @@ M.SCHEMA = {
     { tab = "editor", key = "GridSize", type = "number", label = "Grid size", setting = "grid.size",
         min = 4, max = 64, step = 4, suffix = " px" },
     { tab = "editor", key = "GridLines", type = "toggle", label = "Show grid lines", setting = "grid.show" },
-    { tab = "editor", key = "AxisAnimation", type = "toggle", label = "Animate the centre lines", setting = "grid.centreAnimate" },
-    { tab = "editor", key = "Handles", type = "toggle", label = "Gold drag bars on everything", setting = "editor.showHandles" },
+    { tab = "editor", key = "AxisAnimation", type = "toggle", label = "Animate the center lines", setting = "grid.centerAnimate" },
+    { tab = "editor", key = "Handles", type = "toggle", label = "Drag bars on everything", setting = "editor.showHandles" },
     { tab = "editor", key = "Legend", type = "toggle", label = "Show the hotkey list", setting = "editor.showLegend" },
     { tab = "editor", key = "PauseGame", type = "toggle", label = "Pause controls while editing", setting = "editor.lockInput" },
 
@@ -69,6 +80,7 @@ M.SCHEMA = {
 
     -- Keys
     { tab = "keys", key = "KeyEdit", type = "key", label = "Open / close the editor", setting = "keys.edit" },
+    { tab = "keys", key = "KeyUndo", type = "key", label = "Undo a move", setting = "keys.undo" },
     { tab = "keys", key = "KeySettings", type = "key", label = "Settings (this panel)", setting = "keys.settings" },
     { tab = "keys", key = "KeyCloseEditor", type = "key", label = "Close the editor (also)", setting = "keys.closeEditor" },
     { tab = "keys", key = "KeyLegend", type = "key", label = "Show / hide the hotkey list", setting = "keys.legend" },
@@ -91,7 +103,7 @@ M.SCHEMA = {
     { tab = "keys", key = "KeyGrid", type = "key", label = "Grid on / off", setting = "keys.toggleGrid" },
     { tab = "keys", key = "KeyDumpApi", type = "key", label = "Developer: dump the game's API", setting = "keys.dumpApi" },
 
-    -- Layouts
+    -- Share
     { tab = "share", type = "button", label = "Export this layout", action = "export",
         tooltip = "Writes it to Mods/FrameMage/share/<layout>.framemage.txt to send to someone." },
     { tab = "share", type = "button", label = "Import a layout", action = "import",
@@ -164,7 +176,6 @@ function M.apply(ctx, row, v)
     local cur = M.getPath(ctx.settings, row.setting)
     if v == cur then return false end
     local f = ctx.features
-    if row.key == "Enabled" then ctx.setEnabled(v) return true end   -- saves settings itself
     if row.key == "Theme" then return ctx.themes.set(v) end            -- saves and restyles itself
     if row.key == "Profile" then
         if f.layout then f.layout.selectProfile(v) end
@@ -193,6 +204,18 @@ function M.action(ctx, name)
     if name == "export" and f.share then return f.share.export() end
     if name == "import" and f.share then return f.share.import() end
     if name == "preview" and f.celebrate then return f.celebrate.preview() end
+    if name == "resetLayout" and f.layout then
+        local n = f.layout.resetAll()
+        if f.editor then f.editor.flash(("Layout reset: %d elements back to the game's own"):format(n)) end
+        return n
+    end
+end
+
+-- Pure: a button marked `confirm` runs only on a second click within CONFIRM_SECONDS of the first. armed =
+-- { row, at } from the first click, or nil. Unit-tested.
+M.CONFIRM_SECONDS = 4
+function M.isArmed(armed, row, now)
+    return armed ~= nil and armed.row == row and now - armed.at <= M.CONFIRM_SECONDS
 end
 
 return M

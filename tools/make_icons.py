@@ -121,7 +121,7 @@ def keycap():
 
 
 # --- Ribbon banner (editor title) ---------------------------------------------------------------------
-# Three pieces sharing one height: left end, a wide centre strip the game stretches to fit the text, right end.
+# Three pieces sharing one height: left end, a wide center strip the game stretches to fit the text, right end.
 # Band (front) spans BAND_TOP..BAND_BOT; the swallowtail ends sit lower and behind, joined by a shadowed fold.
 # Material: aged parchment - mottled cream, burnt irregular edges, darker tails, brown fold shadow.
 RH = 80
@@ -165,9 +165,9 @@ def mix(c1, c2, t):
 
 
 def parchment(px, py, edge_dist, shade=1.0):
-    """Parchment colour at a point `edge_dist` units inside the cloth's edge."""
+    """Parchment color at a point `edge_dist` units inside the cloth's edge."""
     stain = fbm(px / 26.0, py / 18.0, 7)                    # broad blotches
-    grain = value_noise(px / 2.2, py / 1.3, 3)               # fine fibres, slightly horizontal
+    grain = value_noise(px / 2.2, py / 1.3, 3)               # fine fibers, slightly horizontal
     c = mix(PARCH, STAIN, (stain - 0.42) * 1.6)
     c = tuple(v * (0.94 + 0.08 * grain) for v in c)
     wobble = (fbm(px / 9.0, py / 9.0, 11) - 0.5) * 5.0      # ragged burn line
@@ -176,7 +176,7 @@ def parchment(px, py, edge_dist, shade=1.0):
     return (c[0] * shade, c[1] * shade, c[2] * shade, 1.0)
 
 
-def band_colour(px, py):
+def band_color(px, py):
     d = min(py - BAND_TOP, BAND_BOT - py)
     # a gentle curve: the middle of the strip catches a little more light
     t = (py - BAND_TOP) / (BAND_BOT - BAND_TOP)
@@ -188,7 +188,7 @@ def band_layers(x0, x1):
     edge_top = lambda px, py, x0=x0, x1=x1: max(abs(py - (BAND_TOP + 0.6)) - 0.6, x0 - px, px - x1)
     edge_bot = lambda px, py, x0=x0, x1=x1: max(abs(py - (BAND_BOT - 0.6)) - 0.6, x0 - px, px - x1)
     shadow = lambda px, py, x0=x0, x1=x1: max(BAND_BOT - py, py - (BAND_BOT + 4), x0 - px, px - x1)
-    return [(shadow, (0.10, 0.06, 0.02, 0.30)), (band, band_colour), (edge_top, INK_EDGE), (edge_bot, INK_EDGE)]
+    return [(shadow, (0.10, 0.06, 0.02, 0.30)), (band, band_color), (edge_top, INK_EDGE), (edge_bot, INK_EDGE)]
 
 
 def ribbon_end_left():
@@ -197,9 +197,9 @@ def ribbon_end_left():
     join = w - 14  # where the band (front) starts in this piece
     tail = sd_polygon([(0, TAIL_TOP), (join + 6, TAIL_TOP), (join + 6, TAIL_BOT), (0, TAIL_BOT),
                        (notch, (TAIL_TOP + TAIL_BOT) / 2)])
-    tail_colour = lambda px, py: parchment(px + 900, py, -tail(px, py), 0.80)  # behind the band: in shade
+    tail_color = lambda px, py: parchment(px + 900, py, -tail(px, py), 0.80)  # behind the band: in shade
     fold = sd_polygon([(join, BAND_BOT), (w, BAND_BOT), (join, TAIL_BOT)])
-    layers = [(tail, tail_colour), (ring(tail, 1.0), INK_EDGE), (fold, (0.30, 0.19, 0.09, 1.0))]
+    layers = [(tail, tail_color), (ring(tail, 1.0), INK_EDGE), (fold, (0.30, 0.19, 0.09, 1.0))]
     # the band's own end: a short piece of the front cloth, with the turn of the fold shaded
     layers += band_layers(join, w + 1)
     curl = sd_polygon([(join, BAND_TOP), (join + 4, BAND_TOP), (join + 4, BAND_BOT), (join, BAND_BOT)])
@@ -225,7 +225,7 @@ def ribbon_mid():
 # White so the game can tint them per burst (SetColorAndOpacity multiplies).
 
 def radial(w, h, fn):
-    """Per-pixel radial image: fn(r) -> (rgb, alpha) with r = distance from centre / (w/2)."""
+    """Per-pixel radial image: fn(r) -> (rgb, alpha) with r = distance from center / (w/2)."""
     out = [0] * (w * h * 4)
     for y in range(h):
         for x in range(w):

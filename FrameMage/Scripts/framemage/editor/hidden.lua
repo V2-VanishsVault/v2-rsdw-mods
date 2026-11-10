@@ -50,7 +50,7 @@ end
 -- Widgets --------------------------------------------------------------------------------------------------
 
 
-local GOLD_TEXT, LABEL, INK -- theme colours, read at build
+local GOLD_TEXT, LABEL, INK -- theme colors, read at build
 
 local function build()
     GOLD_TEXT, LABEL, INK = style.heading(), style.label(), style.ink()

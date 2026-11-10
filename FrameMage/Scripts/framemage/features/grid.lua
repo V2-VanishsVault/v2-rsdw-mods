@@ -1,6 +1,6 @@
 -- Grid: an on-screen grid shown while the editor is open, and the maths for snapping to it.
 --
--- The grid is centred on the screen (the centre cross is drawn brighter), with a brighter line every
+-- The grid is centered on the screen (the center cross is drawn brighter), with a brighter line every
 -- `major` cells. Snapping works on what is actually drawn: the selected widget's on-screen rectangle is
 -- measured from its cached geometry, and a move goes to the nearest position in that direction where
 -- either of its edges sits on a grid line. Left/right-anchored elements both line up naturally.
@@ -67,15 +67,17 @@ end
 
 local function build()
     local w, h = viewportSize()
-    local hst = overlay.host("Grid", 19999) -- just under the editor banner
+    -- over the game's HUD but under all of the editor's own layers (handles 19996, hotkey list and hidden-elements
+    -- panel 19997, selection frame and Settings 19998, banner 20000), so it never draws across a panel
+    local hst = overlay.host("Grid", 19995)
     local cell, major = G.size, G.major
     local cx, cy = w / 2, h / 2
     local n = 0
-    local function lines(vertical, centre, extent)
-        local k = math.ceil(centre / cell)
+    local function lines(vertical, center, extent)
+        local k = math.ceil(center / cell)
         for i = -k, k do
-            local pos = centre + i * cell
-            if i ~= 0 and pos >= 0 and pos <= extent then -- centre axes are drawn last, below
+            local pos = center + i * cell
+            if i ~= 0 and pos >= 0 and pos <= extent then -- center axes are drawn last, below
                 local alpha = (i % major == 0) and G.majorAlpha or G.minorAlpha
                 n = n + 1
                 line(hst.tree, hst.canvas, "FM_GridLine_" .. hst.suffix .. "_" .. n, vertical, pos, 1, alpha)
@@ -84,10 +86,10 @@ local function build()
     end
     lines(true, cx, w)
     lines(false, cy, h)
-    -- centre axes: own colour, added last so they draw on top of every crossing grid line. Four arms of short
-    -- segments (centre -> each edge) so they can carry a gradient and travelling pulses (animateAxes).
+    -- center axes: own color, added last so they draw on top of every crossing grid line. Four arms of short
+    -- segments (center -> each edge) so they can carry a gradient and traveling pulses (animateAxes).
     local axis = {}
-    for i, s in ipairs(M.axisSegments(cx, cy, w, h, G.centreSegments, G.centreThickness)) do
+    for i, s in ipairs(M.axisSegments(cx, cy, w, h, G.centerSegments, G.centerThickness)) do
         local img = overlay.new("Image", hst.tree, "FM_GridAxis_" .. hst.suffix .. "_" .. i)
         local slot = hst.canvas:AddChildToCanvas(img)
         slot:SetPosition({ X = s.x, Y = s.y })
@@ -95,11 +97,11 @@ local function build()
         axis[#axis + 1] = { img = img, t = s.t, last = -1 }
     end
     local dot = overlay.new("Image", hst.tree, "FM_GridDot_" .. hst.suffix)
-    local cc = G.centreColor or G.color
+    local cc = G.centerColor or G.color
     dot:SetColorAndOpacity({ R = cc[1], G = cc[2], B = cc[3], A = 1 })
     local ds = hst.canvas:AddChildToCanvas(dot)
-    ds:SetPosition({ X = cx - G.centreDot / 2, Y = cy - G.centreDot / 2 })
-    ds:SetSize({ X = G.centreDot, Y = G.centreDot })
+    ds:SetPosition({ X = cx - G.centerDot / 2, Y = cy - G.centerDot / 2 })
+    ds:SetSize({ X = G.centerDot, Y = G.centerDot })
     n = n + #axis + 1
     hst.uw:SetVisibility(1) -- collapsed until shown
     host = { uw = hst.uw, canvas = hst.canvas, w = w, h = h, axis = axis }
@@ -107,10 +109,10 @@ local function build()
     log.debug("grid built: %dx%d, %d lines, cell %d", w, h, n, cell)
 end
 
--- Animated centre axes ------------------------------------------------------------------------------
+-- Animated center axes ------------------------------------------------------------------------------
 
--- Pure: the 4 arms (right, left, down, up) cut into n segments each, from the centre out to the screen edge.
--- t = how far along the arm the segment's middle is (0 centre .. 1 edge). Unit-tested.
+-- Pure: the 4 arms (right, left, down, up) cut into n segments each, from the center out to the screen edge.
+-- t = how far along the arm the segment's middle is (0 center .. 1 edge). Unit-tested.
 function M.axisSegments(cx, cy, w, h, n, thick)
     local out = {}
     local arms = {
@@ -134,24 +136,24 @@ function M.axisSegments(cx, cy, w, h, n, thick)
     return out
 end
 
--- Pure: brightness 0..1 at position t for animation phase (in pulses travelled). A gradient that fades
+-- Pure: brightness 0..1 at position t for animation phase (in pulses traveled). A gradient that fades
 -- toward the edge, with `waves` bright pulses per arm moving outward as phase grows. Unit-tested.
 function M.axisLevel(t, phase, g)
-    local base = 1 - g.centreFade * t
-    local wave = 0.5 + 0.5 * math.cos(2 * math.pi * (t * g.centreWaves - phase))
+    local base = 1 - g.centerFade * t
+    local wave = 0.5 + 0.5 * math.cos(2 * math.pi * (t * g.centerWaves - phase))
     local pulse = wave ^ 4 -- narrow bright bands
-    return math.max(0, math.min(1, base * (g.centreMinLevel + (1 - g.centreMinLevel) * pulse))), pulse
+    return math.max(0, math.min(1, base * (g.centerMinLevel + (1 - g.centerMinLevel) * pulse))), pulse
 end
 
 function M.paintAxes(phase)
     if not (host and host.axis) then return end
-    local cc, hi = G.centreColor or G.color, G.centrePulseColor or { 1, 1, 1 }
+    local cc, hi = G.centerColor or G.color, G.centerPulseColor or { 1, 1, 1 }
     for _, s in ipairs(host.axis) do
         local level, pulse = M.axisLevel(s.t, phase, G)
-        local a = G.centreAlpha * level
+        local a = G.centerAlpha * level
         if math.abs(a - s.last) > 0.01 then
             s.last = a
-            local k = pulse * 0.5 -- pulses shift toward the highlight colour
+            local k = pulse * 0.5 -- pulses shift toward the highlight color
             pcall(function()
                 s.img:SetColorAndOpacity({ R = cc[1] + (hi[1] - cc[1]) * k, G = cc[2] + (hi[2] - cc[2]) * k,
                     B = cc[3] + (hi[3] - cc[3]) * k, A = a })
@@ -168,8 +170,9 @@ function M.show()
         local ok, err = pcall(build)
         if not ok then log.warn("grid unavailable: %s", tostring(err)); host = nil; return end
     end
-    pcall(function() host.uw:SetVisibility(snapOn and 3 or 1) end) -- HitTestInvisible / Collapsed
-    visible = snapOn
+    -- (lines show whether or not snapping is on: they have their own toggle, grid.show)
+    pcall(function() host.uw:SetVisibility(3) end) -- HitTestInvisible
+    visible = true
 end
 
 function M.hide()
@@ -180,7 +183,6 @@ end
 -- Setters (the Settings panel) ------------------------------------------------------------------------------------
 function M.setSnap(on)
     snapOn = on and true or false
-    if visible or (host and snapOn) then M.show() end
 end
 function M.setShowLines(on)
     G.show = on and true or false
@@ -206,7 +208,6 @@ function M.cell(big) return big and G.size * G.major or G.size end
 
 function M.toggleSnap()
     snapOn = not snapOn
-    M.show()
     return snapOn
 end
 
@@ -215,7 +216,7 @@ function M.measure(w)
     return require("framemage.core.geometry").rect(w)
 end
 
-function M.centre()
+function M.center()
     return (host and host.w or 1920) / 2, (host and host.h or 1080) / 2
 end
 
@@ -225,14 +226,14 @@ function M.init(c)
     G = c.settings.grid
     snapOn = G.snap ~= false
     c.events.on("worldchanged", function() host = nil; visible = false end)
-    -- animate the centre axes while the grid is on screen (costs nothing while it isn't)
+    -- animate the center axes while the grid is on screen (costs nothing while it isn't)
     local phase, last = 0, os.clock()
-    c.sched.every(G.centreFrameMs, "grid.axes", function()
+    c.sched.every(G.centerFrameMs, "grid.axes", function()
         local now = os.clock()
         local dt = math.min(now - last, 0.25)
         last = now
-        if not (visible and G.centreAnimate and host and W.valid(host.uw)) then return end
-        phase = (phase + dt * G.centreSpeed) % 1
+        if not (visible and G.centerAnimate and host and W.valid(host.uw)) then return end
+        phase = (phase + dt * G.centerSpeed) % 1
         M.paintAxes(phase)
     end)
 end

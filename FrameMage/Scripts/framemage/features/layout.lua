@@ -1,7 +1,7 @@
 -- Layout: per-element offset, scale, opacity and hiding, stored per profile.
 --
 -- Uses the widget's render transform, which is applied after layout: moving an element never
--- reflows its neighbours, and it works for any widget regardless of its slot/panel type.
+-- reflows its neighbors, and it works for any widget regardless of its slot/panel type.
 -- Profile file: layouts/<profile>.lua  ->  return { elements = { [key] = { x=, y=, scale=, opacity=, hidden= } } }
 local M = {}
 
@@ -159,11 +159,6 @@ local function releaseAll()
     end
 end
 
--- Master switch: off hands every edited widget back to the game; on finds and re-applies them.
-function M.setEnabled(on)
-    if on then W.rescan() else releaseAll() end
-end
-
 -- Switch to a named profile (the Settings panel's Layout choice).
 function M.selectProfile(name)
     if name == ctx.settings.profile then return end
@@ -183,6 +178,51 @@ function M.replaceProfile(data)
     M.save()
     if ctx.enabled then W.rescan() end
     ctx.events.emit("profilechanged", name)
+end
+
+-- Every element of the current layout back to the game's own place, size, fade and visibility (the Settings
+-- panel's Reset). The old layout is kept as layouts/<name>.before-reset.lua. Returns how many entries were dropped.
+function M.resetAll()
+    local name = ctx.settings.profile
+    local n = 0
+    for _ in pairs(profile.elements) do n = n + 1 end
+    ctx.config.save(ctx.dir .. "layouts/" .. name .. ".before-reset.lua", profile)
+    releaseAll()
+    profile = { elements = {} }
+    rebuildPrefixes()
+    M.save()
+    W.rescan()
+    ctx.events.emit("profilechanged", name)
+    log.info("layout '%s' reset to the game's own (%d elements dropped)", name, n)
+    return n
+end
+
+-- Pure: entry `from` folded into entry `to`: offsets add up; scale, fade and hidden carry over where `to` has none.
+-- (For a wrapper that shouldn't be moved on its own, so what it did moves onto the element inside it.) Unit-tested.
+function M.foldEntry(from, to)
+    if not from then return to end
+    local out = {}
+    for k, v in pairs(to or {}) do out[k] = v end -- entries are flat (x, y, scale, opacity, hidden)
+    if from.x or out.x then out.x = (from.x or 0) + (out.x or 0) end
+    if from.y or out.y then out.y = (from.y or 0) + (out.y or 0) end
+    for _, k in ipairs({ "scale", "opacity", "hidden" }) do
+        if out[k] == nil then out[k] = from[k] end
+    end
+    if out.x and math.abs(out.x) < 1e-3 then out.x = nil end
+    if out.y and math.abs(out.y) < 1e-3 then out.y = nil end
+    return next(out) and out or nil
+end
+
+-- Fold the current layout's entry for key `from` into `to` (and remove `from`); saves. true if there was one.
+function M.fold(from, to)
+    local e = profile.elements[from]
+    if not e then return false end
+    profile.elements[to] = M.foldEntry(e, profile.elements[to])
+    profile.elements[from] = nil
+    rebuildPrefixes()
+    M.save()
+    log.info("layout: %s's offset moved onto %s", from, to)
+    return true
 end
 
 function M.nextProfile()
@@ -215,7 +255,9 @@ function M.init(c)
         for full, rec in pairs(live) do
             if W.valid(rec.w) then
                 -- the editor owns the selected widget while it previews it
-                if full ~= M.skipFull then M.applyTo(rec.w, profile.elements[rec.key]) end
+                if full ~= M.skipFull and not (M.skipSet and M.skipSet[full]) then
+                    M.applyTo(rec.w, profile.elements[rec.key])
+                end
             else
                 live[full] = nil
                 original[full] = nil

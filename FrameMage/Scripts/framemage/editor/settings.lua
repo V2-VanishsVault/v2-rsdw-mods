@@ -20,6 +20,7 @@ local offset = 0
 local open = false
 local drag
 local capturing -- the row waiting for a key
+local armed -- { row, at }: a confirm button clicked once, waiting for the second click
 local onClose
 
 local ROWS = 12
@@ -63,14 +64,19 @@ local function build()
     -- tabs
     local tabRow = new("HorizontalBox")
     local tabs = {}
+    -- each tab a button in the theme's button border (the rim drawn over the game's buttons), dark glass inside;
+    -- the selected one's rim brighter and its glass tinted with the theme's highlight (see paint)
     for _, t in ipairs(options.TABS) do
-        local b = new("Border")
-        b:SetPadding({ Left = 8, Top = 3, Right = 8, Bottom = 3 })
+        local b = new("Border")                     -- the rim
+        b:SetPadding({ Left = 3, Top = 3, Right = 3, Bottom = 3 })
+        local fill = new("Border")                  -- the glass inside it
+        fill:SetPadding({ Left = 5, Top = 2, Right = 5, Bottom = 2 })
         local label = text(t.label, S.legendSectionSize + 1, LABEL)
-        b:SetContent(label)
+        fill:SetContent(style.buttonContent(new, label, h.uw))
+        b:SetContent(fill)
         local sl = tabRow:AddChildToHorizontalBox(b)
         sl:SetPadding({ Left = 0, Top = 0, Right = 4, Bottom = 0 })
-        tabs[#tabs + 1] = { border = b, text = label, id = t.id }
+        tabs[#tabs + 1] = { border = b, fill = fill, text = label, id = t.id }
     end
     local ts = column:AddChildToVerticalBox(tabRow)
     ts:SetPadding({ Left = 0, Top = 0, Right = 0, Bottom = 8 })
@@ -91,13 +97,23 @@ local function build()
         valueBox:SetWidthOverride(S.settingsValueWidth)
         local valueRow = new("HorizontalBox")
         local back = text("<", S.legendLabelSize, HEAD)
-        local value = text("", S.legendLabelSize, INK)
+        local value = text("", S.legendLabelSize, style.selectedInk())
         local fwd = text(">", S.legendLabelSize, HEAD)
         local valuePlate = new("Border")
-        style.titlePlate(valuePlate, h.uw)
+        style.buttonPlate(valuePlate, h.uw) -- a button: filled with the theme's material
+        -- (its inside fills the button, so the ornaments sit at its ends, 8 units in from the border; the value is
+        -- centered between them)
         valuePlate:SetPadding({ Left = 8, Top = 1, Right = 8, Bottom = 1 })
-        valuePlate:SetHorizontalAlignment(2)
-        valuePlate:SetContent(value)
+        valuePlate:SetHorizontalAlignment(0)
+        -- an icon before the value where the choice has one (the themes: the game's combat-style icons)
+        local valueLine = new("HorizontalBox")
+        local icon = new("Image")
+        pcall(function() icon:SetVisibility(1) end)
+        local is = valueLine:AddChildToHorizontalBox(icon)
+        is:SetVerticalAlignment(2)
+        is:SetPadding({ Left = 0, Top = 0, Right = 4, Bottom = 0 })
+        local vls = valueLine:AddChildToHorizontalBox(value); vls:SetVerticalAlignment(2)
+        valuePlate:SetContent(style.buttonContent(new, valueLine, h.uw))
         local s1 = valueRow:AddChildToHorizontalBox(back); s1:SetVerticalAlignment(2)
         s1:SetPadding({ Left = 0, Top = 0, Right = 6, Bottom = 0 })
         local s2 = valueRow:AddChildToHorizontalBox(valuePlate); s2:SetVerticalAlignment(2)
@@ -109,7 +125,7 @@ local function build()
         vs:SetVerticalAlignment(2)
         b:SetContent(line)
         column:AddChildToVerticalBox(b)
-        rows[#rows + 1] = { border = b, label = label, value = value, plate = valuePlate, back = back, fwd = fwd,
+        rows[#rows + 1] = { border = b, label = label, value = value, icon = icon, plate = valuePlate, back = back, fwd = fwd,
             box = valueBox }
     end
 
@@ -117,7 +133,9 @@ local function build()
     local tip = text("", S.legendSectionSize + 1, DIM)
     pcall(function() tip:SetAutoWrapText(true) end)
     local tipBox = new("SizeBox")
-    tipBox:SetHeightOverride(S.legendSectionSize * 3.2)
+    -- room for four lines kept free (the panel doesn't jump as you hover), and a longer tip makes the panel taller
+    -- instead of running over the CLOSE row (a fixed height had let a three-line tip spill out of it)
+    tipBox:SetMinDesiredHeight(M.tipHeight(S.legendSectionSize + 1, S.settingsTipLines or 4))
     tipBox:SetContent(tip)
     local tps = column:AddChildToVerticalBox(tipBox)
     tps:SetPadding({ Left = 6, Top = 6, Right = 6, Bottom = 4 })
@@ -134,9 +152,10 @@ local function build()
     local u1 = footer:AddChildToHorizontalBox(up); u1:SetVerticalAlignment(2)
     gap()
     local close = new("Border")
-    style.titlePlate(close, h.uw)
-    close:SetPadding({ Left = 16, Top = 5, Right = 16, Bottom = 5 })
-    close:SetContent(text("CLOSE", S.legendHeadingSize, INK))
+    style.buttonPlate(close, h.uw)
+    close:SetPadding({ Left = 8, Top = 5, Right = 8, Bottom = 5 })
+    pcall(function() close:SetHorizontalAlignment(0) end)
+    close:SetContent(style.buttonContent(new, text("CLOSE", S.legendHeadingSize, style.selectedInk()), h.uw))
     local cs = footer:AddChildToHorizontalBox(close); cs:SetVerticalAlignment(2)
     gap()
     local u2 = footer:AddChildToHorizontalBox(down); u2:SetVerticalAlignment(2)
@@ -146,7 +165,15 @@ local function build()
     local slot = h.canvas:AddChildToCanvas(width)
     slot:SetAutoSize(true)
     slot:SetAnchors({ Minimum = { X = 0, Y = 0 }, Maximum = { X = 0, Y = 0 } })
-    host = { uw = h.uw, canvas = h.canvas, slot = slot, root = width, plate = plate, tabs = tabs, rows = rows,
+    -- the panel as wide as its tabs need (the buttons grew ornaments), never narrower than settingsWidth: measured
+    -- now, while the labels and the explanation are still empty, so long wrapping text can't widen it
+    local panelW = S.settingsWidth
+    pcall(function()
+        root:ForceLayoutPrepass()
+        panelW = M.panelWidth(S.settingsWidth, root:GetDesiredSize().X)
+    end)
+    pcall(function() width:SetWidthOverride(panelW) end)
+    host = { width = panelW, uw = h.uw, canvas = h.canvas, slot = slot, root = width, plate = plate, tabs = tabs, rows = rows,
         close = close, up = up, down = down, tip = tip }
 end
 
@@ -159,8 +186,12 @@ local function paint()
     for _, t in ipairs(host.tabs) do
         pcall(function()
             local on = t.id == tab
-            t.border:SetBrushColor(on and { R = tc[1], G = tc[2], B = tc[3], A = 0.9 } or { R = 0, G = 0, B = 0, A = 0 })
-            t.text:SetColorAndOpacity({ SpecifiedColor = on and style.ink() or style.label(), ColorUseRule = 0 })
+            -- a button filled with the theme's material (fetched fresh: a loaded texture lives only while something
+            -- shows it); the selected tab bright with the plate's lettering, the others dimmed with light lettering
+            style.buttonPlate(t.border, host.uw)
+            t.border:SetBrushColor(on and { R = 1, G = 1, B = 1, A = 1 } or { R = 0.45, G = 0.45, B = 0.45, A = 1 })
+            t.fill:SetBrushColor({ R = 0, G = 0, B = 0, A = 0 })
+            t.text:SetColorAndOpacity({ SpecifiedColor = on and style.selectedInk() or style.label(), ColorUseRule = 0 })
         end)
     end
     local list = tabRows()
@@ -184,20 +215,57 @@ local function paint()
             r.label:SetColorAndOpacity({ SpecifiedColor = style.label(), ColorUseRule = 0 })
             r.box:SetVisibility(3)
             local shown
-            if kind == "button" then shown = "Do it"
+            if kind == "button" then
+                shown = options.isArmed(armed, row, os.clock()) and "Sure? Click again" or "Do it"
             elseif kind == "key" then
                 shown = (capturing == row) and "Press a key (Esc: cancel)" or tostring(setting(row) or "")
             else shown = options.display(row, setting(row)) end
             r.value:SetText(FText(shown))
+            -- the value's icon (a theme's combat style), if it has one
+            local iconName = row.icons and row.icons[setting(row)]
+            local art = ctx.features.art
+            local tex = iconName and art and art.gameTexture and art.gameTexture(iconName)
+            if tex then
+                local sz = S.legendLabelSize + 5
+                pcall(function()
+                    r.icon:SetBrush({ ResourceObject = tex, ImageSize = { X = sz, Y = sz }, DrawAs = 3, Tiling = 0,
+                        TintColor = { SpecifiedColor = { R = 1, G = 1, B = 1, A = 1 }, ColorUseRule = 0 } })
+                    r.icon:SetVisibility(3)
+                end)
+            else
+                pcall(function() r.icon:SetVisibility(1) end)
+            end
         end)
     end
 end
 
+-- Pure: the panel's width: what its contents need (rounded up), at least `min`. Unit-tested.
+function M.panelWidth(min, need)
+    return math.max(min, math.ceil(tonumber(need) or 0))
+end
+
+-- Pure: the room (UI units) the hovered row's explanation keeps free: `lines` lines of text at font size `size`
+-- (a line is about 1.5 x the font size, with its spacing). Unit-tested.
+function M.tipHeight(size, lines)
+    return math.ceil(size * 1.5 * lines)
+end
+
+-- Pure: a panel position kept on screen, so its title bar can always be grabbed (the same limits as a drag).
+-- Unit-tested.
+function M.onScreen(x, y, sw, sh)
+    return math.max(0, math.min(x, (sw or 1920) - 80)), math.max(0, math.min(y, (sh or 1080) - 28))
+end
+
+-- Where the panel opens: where it was last dragged to (editor.settingsX / settingsY, saved), else top middle.
 local function place()
     if not host.x then
         local sw, sh = geometry.screen()
-        host.x = math.floor(((sw or 1920) - S.settingsWidth) / 2)
-        host.y = math.floor((sh or 1080) * 0.18)
+        if S.settingsX and S.settingsY then
+            host.x, host.y = M.onScreen(S.settingsX, S.settingsY, sw, sh)
+        else
+            host.x = math.floor(((sw or 1920) - (host.width or S.settingsWidth)) / 2)
+            host.y = math.floor((sh or 1080) * 0.18)
+        end
     end
     pcall(function() host.slot:SetPosition({ X = host.x, Y = host.y }) end)
 end
@@ -263,6 +331,16 @@ local function activate(row, x, r)
         startCapture(row)
         return
     elseif kind == "button" then
+        if row.confirm and not options.isArmed(armed, row, os.clock()) then
+            -- first click only asks; the label goes back to "Do it" when the time runs out
+            armed = { row = row, at = os.clock() }
+            paint()
+            ctx.sched.later(options.CONFIRM_SECONDS * 1000 + 50, "settings.disarm", function()
+                if armed and not options.isArmed(armed, armed.row, os.clock()) then armed = nil; paint() end
+            end)
+            return
+        end
+        armed = nil
         local ok, err = pcall(options.action, ctx, row.action)
         if not ok then log.warn("settings: %s failed: %s", tostring(row.action), tostring(err)) end
     end
@@ -301,6 +379,11 @@ end
 
 function M.onUp()
     if not drag then return false end
+    if drag.moved and host and host.x then
+        -- remember where it was put, for the next time it opens (this session or the next)
+        S.settingsX, S.settingsY = math.floor(host.x + 0.5), math.floor(host.y + 0.5)
+        ctx.saveSettings()
+    end
     drag = nil
     return true
 end
@@ -313,8 +396,7 @@ function M.dragTick(x, y)
     if math.abs(dx) + math.abs(dy) > 3 then drag.moved = true end
     if not drag.moved then return end
     local sw, sh = geometry.screen()
-    host.x = math.max(0, math.min(drag.px + dx, (sw or 1920) - 80))
-    host.y = math.max(0, math.min(drag.py + dy, (sh or 1080) - 28))
+    host.x, host.y = M.onScreen(drag.px + dx, drag.py + dy, sw, sh)
     pcall(function() host.slot:SetPosition({ X = host.x, Y = host.y }) end)
 end
 

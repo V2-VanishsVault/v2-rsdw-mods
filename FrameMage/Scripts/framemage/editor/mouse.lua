@@ -29,7 +29,7 @@ local function build()
     slot:SetOffsets({ Left = 0, Top = 0, Right = 0, Bottom = 0 })
     img:SetVisibility(0) -- Visible: takes clicks
     h.uw:SetVisibility(1)
-    catcher = { uw = h.uw, full = h.uw:GetFullName() }
+    catcher = { uw = h.uw, full = h.uw:GetFullName(), canvas = h.canvas }
 end
 
 -- Which button: the hooked pointer event can't be read from Lua (FPointerEvent has no script-visible fields), so
@@ -73,6 +73,9 @@ function M.open()
         if not ok then log.warn("editor mouse catcher unavailable: %s", tostring(err)); catcher = nil end
     end
     if catcher then pcall(function() catcher.uw:SetVisibility(0) end) end
+    -- the mouse position needs a world context: the editor's frame gives one while the editor is open; with the
+    -- Settings panel open on its own, the catcher's canvas is it
+    if catcher and not geometry.hasReference() then geometry.setReference(catcher.canvas) end
     active = true
     polledDown = false
 end

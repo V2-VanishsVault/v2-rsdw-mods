@@ -7,11 +7,16 @@ Pure standard library, like make_icons.py. Pieces:
   panel_stone_slate.png, panel_stone_marble.png   the other stones players can pick (settings: stone)
   panel_frame.png   9-slice frame of light: a gold hairline, brightest at the corners, with three curves
                     converging in each corner and faint compass arcs behind (after the game's own menus)
+  panel_flourish.png  the ornament centered on a panel's top line (after the game's lobby menus)
+  check_box*.png    whole checkboxes (off / on, each with a hover version), the box with the tick in it
+  button_rim*.png   our buttons' border alone (and a brighter one for selected), to lay over the game's buttons
+  tip_band.png      tooltips: dark glass edged top and bottom with light, fading out at both ends
+  check_mark.png    a checkbox's tick: a thick stroke of light tapering to a point at both ends
   title_line.png    9-slice title bar / drag bar / button: faint dark glass edged with a hairline of light
                     (gold lettering sits on it)
   keycap.png        9-slice keycap: dark face, hairline gold rim
   title_plate.png   the older solid gold plate (kept for themes that want it)
-  bar_bevel.png     overlay for the "bevelled" progress-bar style (settings: bars.style)
+  bar_bevel.png     overlay for the "beveled" progress-bar style (settings: bars.style)
   bar_facet.png     overlay for the "faceted" style: a hard bevel, facets meeting in a ridge
 Images are made at twice their drawn size (theme.lua sizes) so they stay sharp on 1440p and 4K.
 """
@@ -112,7 +117,7 @@ def cover(d):
 
 
 def over(dst, src, a):
-    """Composite colour src with alpha a over dst (both straight RGBA)."""
+    """Composite color src with alpha a over dst (both straight RGBA)."""
     da = dst[3]
     oa = a + da * (1 - a)
     if oa <= 0:
@@ -134,7 +139,7 @@ GOLD_LO = (0.50, 0.34, 0.10)
 
 
 def granite(px, py, brighten=0.0):
-    """Granite colour at a pixel of the wrapping tile."""
+    """Granite color at a pixel of the wrapping tile."""
     cells = STONE_PX / GRAIN
     gx, gy = px / GRAIN, py / GRAIN
     d1, d2, tag = worley(gx, gy, round(cells), 5)
@@ -161,7 +166,7 @@ def panel_stone():
 def gold_line(t):
     """Gold across a rounded bar: t in [-1, 1] from one side to the other (fake cylinder lighting)."""
     light = math.cos(t * math.pi / 2)              # brightest along the middle
-    spec = max(0.0, 1 - abs(t + 0.35) * 3.2) ** 2  # a hot streak just above centre
+    spec = max(0.0, 1 - abs(t + 0.35) * 3.2) ** 2  # a hot streak just above center
     c = mix(GOLD_LO, GOLD, light * 1.15)
     return mix(c, GOLD_HI, spec)
 
@@ -170,7 +175,7 @@ def panel_frame():
     """128px frame (drawn 64 units): dark outline, raised polished rim, gold inlay, corner diamonds."""
     S = 128
     R_OUT = 10
-    INLAY = 15.0   # inlay line centre, inset from the edge (px)
+    INLAY = 15.0   # inlay line center, inset from the edge (px)
     INLAY_W = 4.0
     RIM = 9.0      # width of the raised rim
 
@@ -214,8 +219,8 @@ def panel_frame():
     return S, S, image(S, S, fn)
 
 
-def title_plate():
-    """256x64 polished gold plate (drawn 128x32): bevelled, brushed, engraved border line, end diamonds."""
+def title_plate(ornaments=True):
+    """256x64 polished gold plate (drawn 128x32): beveled, brushed, engraved border line, end diamonds."""
     W, H = 256, 64
     R = 7
 
@@ -241,14 +246,30 @@ def title_plate():
         e = sd_round_rect(x, y, W / 2, H / 2, W / 2 - 8, H / 2 - 8, 4)
         col = over(col, (0.36, 0.23, 0.06, 1), 0.85 * cover(abs(e) - 0.8))
         col = over(col, GOLD_HI + (1,), 0.55 * cover(abs(e - 1.6) - 0.5))
-        # small diamonds at each end of the engraved line
-        for cx in (17, W - 17):
+        # small diamonds at each end of the engraved line (not on the button plate: its ornaments are their own)
+        for cx in ((17, W - 17) if ornaments else ()):
             dd = (abs(x - cx) + abs(y - H / 2)) / math.sqrt(2) - 4.2
             col = over(col, (0.30, 0.19, 0.05, 1), cover(dd))
             col = over(col, GOLD_HI + (1,), 0.8 * cover(dd + 2.2))
         return col
 
     return W, H, image(W, H, fn)
+
+
+def plate_ornament():
+    """32x32 (drawn about 9 units): the gold plate's small diamond, on its own - set into each end of a filled
+    button, beside its text (a separate picture, so it's never stretched with the button)."""
+    S = 32
+    c0 = (S - 1) / 2
+
+    def fn(x, y):
+        dd = (abs(x - c0) + abs(y - c0)) / math.sqrt(2) - 7.5
+        col = (0, 0, 0, 0)
+        col = over(col, (0.30, 0.19, 0.05, 1), cover(dd))
+        col = over(col, GOLD_HI + (1,), 0.85 * cover(dd + 3.5))
+        return col
+
+    return S, S, image(S, S, fn)
 
 
 def keycap():
@@ -278,7 +299,7 @@ LIGHT = (1.0, 0.86, 0.55)
 
 
 def moonstone(px, py):
-    """Seamless moonstone: dark blue-grey with a soft drifting sheen (wraps every STONE_PX)."""
+    """Seamless moonstone: dark blue-gray with a soft drifting sheen (wraps every STONE_PX)."""
     n = pfbm(px / 64.0, py / 64.0, STONE_PX // 64, 51)
     sheen = pfbm(px / 128.0, py / 128.0, STONE_PX // 128, 61)
     v = 0.075 + 0.03 * n
@@ -375,8 +396,102 @@ def light_frame():
     return S, S, image(S, S, fn)
 
 
+def panel_flourish():
+    """128x64 (drawn 64x32): the ornament centered on a panel's top line, after the game's lobby menus: a diamond
+    of light standing on the line, with two pairs of curves fanning up and out from its foot. The line itself runs
+    through y = LINE, so the image is placed with that row on the frame's top hairline."""
+    W, H = 128, 64
+    CX, LINE = 64.0, 46.0
+
+    def fn(x, y):
+        col = (0.0, 0.0, 0.0, 0.0)
+        dx, dy = x - CX, y - LINE
+        # soft bloom where the ornament meets the line
+        col = over(col, LIGHT + (1.0,), math.exp(-(dx * dx / 260.0 + dy * dy / 90.0)) * 0.35)
+        # the diamond: standing on the line, its top 30 px up
+        dcx, dcy, rx, ry = CX, LINE - 15.0, 9.0, 15.0
+        f = abs(x - dcx) / rx + abs(y - dcy) / ry
+        col = hair(col, abs(f - 1) * min(rx, ry) * 0.85, 0.95, 0.9, 2.6)
+        # a small inner diamond and a bright heart
+        f2 = abs(x - dcx) / (rx * 0.45) + abs(y - dcy) / (ry * 0.45)
+        col = hair(col, abs(f2 - 1) * rx * 0.4, 0.55, 0.7, 2.0)
+        col = over(col, mix(GOLD, GOLD_HI, 0.8) + (1.0,), cover(math.hypot(x - dcx, y - dcy) - 1.6))
+        # two pairs of curves from the diamond's foot, fanning up and out, fading toward their tips
+        if y <= LINE + 1:
+            for (r, h, a) in ((20.0, 14.0, 0.85), (34.0, 9.0, 0.6)):
+                for side in (-1, 1):
+                    ex = CX + side * r
+                    if side * (x - CX) >= 0:
+                        d = ellipse_dist(x, y, ex, LINE, r, h)
+                        reach = clamp01(1 - abs(x - CX) / (r * 2 + 4))
+                        col = hair(col, d, a * reach ** 0.6, 0.8, 2.4)
+        return col
+
+    return W, H, image(W, H, fn)
+
+
+def check_mark():
+    """64x64 (drawn 32): a checkmark of light, like the panel borders but thicker: two gently curved strokes, widest
+    where they meet, tapering to a point at both ends (the short one bows up and in, the long one sweeps up in a
+    soft concave arc, like a brush stroke)."""
+    S = 64
+    A, B, C = (12.0, 31.0), (26.0, 47.0), (53.0, 13.0)   # short stroke A-B, long stroke B-C
+    W = 4.2                                               # half-width at the joint (pixels of the 2x art)
+    BOW1, BOW2 = 3.0, 5.0                                 # how far each stroke bows from straight (pixels)
+
+    def curve(p, q, bow, steps=40):
+        """A quadratic curve p -> q bowing `bow` px to the right of its direction (down / outward here),
+        as points with how far along it each is (0 at p, 1 at q)."""
+        mx, my = (p[0] + q[0]) / 2, (p[1] + q[1]) / 2
+        dx, dy = q[0] - p[0], q[1] - p[1]
+        L = math.hypot(dx, dy)
+        nx, ny = -dy / L, dx / L                          # left normal; bow goes the other way
+        cx, cy = mx - nx * bow * 2, my - ny * bow * 2     # control point (the curve reaches half of it)
+        pts = []
+        for i in range(steps + 1):
+            t = i / steps
+            a, b, c = (1 - t) ** 2, 2 * (1 - t) * t, t * t
+            pts.append((a * p[0] + b * cx + c * q[0], a * p[1] + b * cy + c * q[1], t))
+        return pts
+
+    ARM1 = curve(A, B, BOW1)    # bows up and in, toward the long stroke
+    ARM2 = curve(B, C, BOW2)    # sweeps up in a concave arc
+
+    def near(px, py, pts):
+        """Distance to a sampled curve and how far along it the nearest point is."""
+        best, bt = 1e9, 0.0
+        for (x0, y0, t0), (x1, y1, t1) in zip(pts, pts[1:]):
+            dx, dy = x1 - x0, y1 - y0
+            L2 = dx * dx + dy * dy or 1e-9
+            u = max(0.0, min(1.0, ((px - x0) * dx + (py - y0) * dy) / L2))
+            d = math.hypot(px - (x0 + u * dx), py - (y0 + u * dy))
+            if d < best:
+                best, bt = d, t0 + (t1 - t0) * u
+        return best, bt
+
+    def fn(x, y):
+        col = (0.0, 0.0, 0.0, 0.0)
+        if x < 4 or y < 4 or x > S - 4 or y > S - 4:
+            return col
+        d1, t1 = near(x, y, ARM1)   # t1 = 1 at the joint
+        d2, t2 = near(x, y, ARM2)   # t2 = 0 at the joint
+        # half-width runs straight from the joint down to nothing at each tip, so both ends come to a point
+        w1 = W * t1
+        w2 = W * (1 - t2)
+        d = min(d1 - w1, d2 - w2)  # signed: < 0 inside the stroke
+        # glow round the mark, as strong as the stroke is wide (so it thins out to the tips with it), then the
+        # stroke: deep gold at its edge, bright at its heart
+        glow = max(math.exp(-(d1 / 5.0) ** 2) * (w1 / W), math.exp(-(d2 / 5.0) ** 2) * (w2 / W))
+        col = over(col, LIGHT + (1.0,), glow * 0.4)
+        core = clamp01(-d / max(W * 0.8, 1e-6))
+        c = mix(GOLD, GOLD_HI, 0.35 + 0.65 * core)
+        return over(col, c + (1.0,), cover(d))
+
+    return S, S, image(S, S, fn)
+
+
 def title_line():
-    """256x64 (drawn 128x32): faint dark glass, a hairline of light round it, brighter towards the corners."""
+    """256x64 (drawn 128x32): faint dark glass, a hairline of light round it, brighter toward the corners."""
     W, H = 256, 64
     INSET = 3.0
 
@@ -397,6 +512,82 @@ def title_line():
     return W, H, image(W, H, fn)
 
 
+def tip_band():
+    """256x128 (drawn 128x64), 9-slice: a tooltip as a band, after the game's own banners: dark translucent glass
+    with no sides, edged top and bottom by our hairline of light. The band and its lines fade out toward both ends
+    (in the fixed end slices), so it reads as a band of light rather than a box."""
+    W, H = 256, 128
+    LINE = 6.0          # the hairlines' distance in from the top and bottom
+    FADE = 56.0         # how far in from each end the band reaches full strength (= the 9-slice end margin)
+
+    def fn(x, y):
+        e = min(x, W - x)                         # distance from the nearer end
+        k = clamp01(e / FADE) ** 1.4              # ends fade away
+        v = min(y, H - y)                         # distance from the nearer edge
+        # the glass: darkest in the middle, a little lighter toward the lines
+        glass = 0.80 - 0.18 * clamp01(1 - (v - LINE) / 40.0)
+        col = (0.035, 0.035, 0.045, glass * k * cover(LINE - 1.5 - v + 1))
+        col = (0.035, 0.035, 0.045, glass * k) if v > LINE else col
+        # warm glow from each line into the band
+        col = over(col, LIGHT + (1.0,), math.exp(-((v - LINE) / 7.0) ** 2) * 0.22 * k)
+        # the hairlines, brightest in the middle
+        return hair(col, abs(v - LINE), (0.5 + 0.5 * k) * k, 1.0, 3.0)
+
+    return W, H, image(W, H, fn)
+
+
+def button_rim(bright=False):
+    """64x64 (drawn 32), 9-slice: our buttons' border on its own - the hairline of light with a small converging
+    curve in each corner, nothing inside - to lay over a game button and keep its own face and icon showing.
+    `bright` = selected (a stronger rim and glow)."""
+    S = 64
+    INSET = 3.0
+
+    def fn(x, y):
+        u = (x - INSET) if x < S / 2 else (S - INSET - x)
+        v = (y - INSET) if y < S / 2 else (S - INSET - y)
+        if u < -4 or v < -4:
+            return (0.0, 0.0, 0.0, 0.0)
+        col = (0.0, 0.0, 0.0, 0.0)
+        d = min(abs(u) if v >= -1 else 99, abs(v) if u >= -1 else 99)
+        a = (0.85 if bright else 0.55) + 0.15 * clamp01(1 - max(u, v) / 16.0)
+        col = hair(col, d, min(1.0, a), 1.0, 3.6 if bright else 3.0)
+        if u <= 10 and v <= 10:
+            col = hair(col, ellipse_dist(u, v, 10, 10, 10, 10), 0.85 if bright else 0.65, 0.8, 2.5)
+        return col
+
+    return S, S, image(S, S, fn)
+
+
+def check_box(ticked=False, bright=False):
+    """64x64 (drawn 32): a checkbox in the panels' border treatment (faint dark glass, a hairline of light, a small
+    converging curve in each corner), optionally with the tick of light in it; `bright` = hovered (a stronger rim)."""
+    S = 64
+    INSET = 4.0
+    _, _, tick = check_mark() if ticked else (0, 0, None)
+
+    def fn(x, y):
+        u = (x - INSET) if x < S / 2 else (S - INSET - x)
+        v = (y - INSET) if y < S / 2 else (S - INSET - y)
+        if u < -4 or v < -4:
+            col = (0.0, 0.0, 0.0, 0.0)
+        else:
+            col = (0.03, 0.04, 0.06, (0.72 if bright else 0.62) * cover(-min(u, v) - 0.5))
+            d = min(abs(u) if v >= -1 else 99, abs(v) if u >= -1 else 99)
+            a = (0.75 if bright else 0.55) + 0.25 * clamp01(1 - max(u, v) / 16.0)
+            col = hair(col, d, min(1.0, a), 1.0, 3.4 if bright else 3.0)
+            if u <= 10 and v <= 10:
+                col = hair(col, ellipse_dist(u, v, 10, 10, 10, 10), 0.75, 0.8, 2.5)
+        if tick:
+            i = (int(y) * S + int(x)) * 4
+            ta = tick[i + 3] / 255.0
+            if ta > 0:
+                col = over(col, (tick[i] / 255.0, tick[i + 1] / 255.0, tick[i + 2] / 255.0, 1.0), ta)
+        return col
+
+    return S, S, image(S, S, fn)
+
+
 def light_keycap():
     """128px keycap (drawn 64): dark face, hairline gold rim with a faint inner line."""
     S = 128
@@ -414,8 +605,8 @@ def light_keycap():
 
 
 def bar_bevel():
-    """128x32 overlay that turns a flat progress bar into a bevelled, glassy one. Only white light and black shade,
-    so it works over any bar colour; drawn over the whole bar (9-sliced: the rounded ends keep their shape)."""
+    """128x32 overlay that turns a flat progress bar into a beveled, glassy one. Only white light and black shade,
+    so it works over any bar color; drawn over the whole bar (9-sliced: the rounded ends keep their shape)."""
     W, H = 128, 32
 
     def fn(x, y):
@@ -428,7 +619,7 @@ def bar_bevel():
         hi = max(rim, gloss) * (0.55 + 0.45 * clamp01(e))
         if hi > 0:
             col = over(col, (1.0, 1.0, 1.0, 1.0), hi)
-        # shade towards the bottom, with a crisp dark lip
+        # shade toward the bottom, with a crisp dark lip
         shade = clamp01((v - 0.58) / 0.42) ** 1.6 * 0.42
         lip = math.exp(-((v - 0.95) / 0.04) ** 2) * 0.35
         col = over(col, (0.0, 0.0, 0.0, 1.0), max(shade, lip))
@@ -476,7 +667,7 @@ def _tip_inside(x, y):
 
 
 def bar_cap():
-    """The tip's shape in white; the game tints it with the bar's colour."""
+    """The tip's shape in white; the game tints it with the bar's color."""
     def fn(x, y):
         return (1.0, 1.0, 1.0, cover(-_tip_inside(x, y)))
     return TIP_W, TIP_H, image(TIP_W, TIP_H, fn)
@@ -609,7 +800,7 @@ BODY = (40, 88)     # a slice of the body: no ends
 POINT = (96, 128)   # the right 32 px: the point
 
 
-THEME_LUA = """-- Demi-human theme: moonstone and wispy gold light (High Elf meets Dwarven). Colours are linear RGB (0..1).
+THEME_LUA = """-- Demi-human theme: moonstone and wispy gold light (High Elf meets Dwarven). Colors are linear RGB (0..1).
 -- Sizes are UI units (1920x1080 reference): the art in ui/ is made at twice these, so it stays sharp.
 return {
     gold = { 0.86, 0.66, 0.26 },          -- highlights (the selected row in lists)
@@ -627,19 +818,71 @@ return {
     titleMargin = { 0.25, 0.35 },
     keySize = 64,
     keyMargin = 0.32,
+    flourishArt = "panel_flourish.png",   -- centered on a panel's top line
+    flourishSize = { 64, 32 },
+    flourishLine = 23,                     -- the art's row (UI units) that sits on the panel's top line
+    checkArt = "check_mark.png",           -- the tick in a checkbox (drawn at checkSize)
+    checkSize = { 32, 32 },
+    checkBoxArt = { off = "check_box.png", offHover = "check_box_hover.png", on = "check_box_on.png",
+        onHover = "check_box_on_hover.png" },  -- whole checkboxes: the box in the border treatment, with the tick
+    tipArt = "tip_band.png",               -- tooltips: a band of dark glass edged top and bottom with light (9-slice)
+    tipSize = { 128, 64 },
+    tipMargin = { 0.22, 0.19 },            -- the fading ends and the lines stay fixed; the middle stretches
+    tipLine = 3,                           -- the lines' distance in from the band's top and bottom (UI units)
+    rimArt = { off = "button_rim.png", on = "button_rim_on.png" }, -- our button border alone, over a game button
+    rimSize = 32,
+    rimMargin = 0.34,
+    fieldArt = "title_line.png",           -- text boxes: the same light border as title bars (titleSize / titleMargin)
 }
 """
 
 
+# Pictures the game slices by their real pixel size, not by the size we ask for: a filled button's plate drawn on a
+# button about 30 units tall. Made at twice the size (smoother edges), then saved at the size it's drawn, so its
+# corners keep their shape - at twice the size, a short button squashed them to half their height but not their
+# width, thickening the ends and crowding the ornaments.
+DRAWN_SIZE = {"plate_selected.png": (128, 32)}
+
+
+def at_drawn_size(folder, name):
+    size = DRAWN_SIZE.get(name)
+    if not size:
+        return
+    from PIL import Image
+    p = os.path.join(folder, name)
+    Image.open(p).convert("RGBA").resize(size, Image.LANCZOS).save(p)
+
+
 def main():
     theme = sys.argv[1] if len(sys.argv) > 1 else "demihuman"
+    if theme in ("warrior", "ranger"):
+        import importlib
+        mod = importlib.import_module("make_" + theme)
+        out = os.path.join(ROOT, theme, "ui")
+        os.makedirs(out, exist_ok=True)
+        for name, make in mod.PIECES:
+            w, h, px = make()
+            png(os.path.join(out, name), w, h, px)
+            at_drawn_size(out, name)
+            print("wrote", name, w, "x", h)
+        with open(os.path.join(ROOT, theme, "theme.lua"), "w", encoding="utf-8", newline="\n") as f:
+            f.write(mod.THEME_LUA)
+        print("wrote theme.lua")
+        return
     if theme != "demihuman":
-        raise SystemExit("only the Demi-human theme is generated so far")
+        raise SystemExit("only the Demi-human, Warrior and Ranger themes are generated so far")
     out = os.path.join(ROOT, theme, "ui")
     os.makedirs(out, exist_ok=True)
     for name, make in (("panel_stone.png", moonstone_tile), ("panel_stone_slate.png", tile_of(slate)),
                        ("panel_stone_marble.png", tile_of(black_marble)), ("panel_frame.png", light_frame),
+                       ("panel_flourish.png", panel_flourish),
+                       ("check_mark.png", check_mark), ("tip_band.png", tip_band),
+                       ("button_rim.png", lambda: button_rim()), ("button_rim_on.png", lambda: button_rim(True)),
+                       ("check_box.png", lambda: check_box()), ("check_box_hover.png", lambda: check_box(bright=True)),
+                       ("check_box_on.png", lambda: check_box(True)),
+                       ("check_box_on_hover.png", lambda: check_box(True, True)),
                        ("title_line.png", title_line), ("title_plate.png", title_plate),
+                       ("plate_selected.png", lambda: title_plate(False)), ("plate_ornament.png", plate_ornament),
                        ("keycap.png", light_keycap), ("bar_bevel.png", bar_bevel),
                        ("bar_facet.png", bar_facet), ("bar_track.png", bar_track), ("bar_cap.png", bar_cap),
                        ("bar_facet_tapered.png", bar_facet_tapered), ("bar_bevel_tapered.png", bar_bevel_tapered),
@@ -650,9 +893,11 @@ def main():
                        ("bar_bevel_body.png", crop(bar_bevel_tapered, *BODY)),
                        ("bar_tip_bevel.png", crop(bar_bevel_tapered, *POINT)),
                        ("bar_outline_body.png", crop(bar_outline, *BODY)),
-                       ("bar_tip_outline.png", crop(bar_outline, *POINT))):
+                       ("bar_tip_outline.png", crop(bar_outline, *POINT)),
+                       ("gauge_rim.png", lambda: __import__("vitals_art").gauge_rim(None))):
         w, h, px = make()
         png(os.path.join(out, name), w, h, px)
+        at_drawn_size(out, name)
         print("wrote", name, w, "x", h)
     with open(os.path.join(ROOT, theme, "theme.lua"), "w", encoding="utf-8", newline="\n") as f:
         f.write(THEME_LUA)

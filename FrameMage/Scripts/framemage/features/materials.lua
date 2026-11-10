@@ -7,7 +7,7 @@
 --   * MaterialInstanceDynamic brushes (the game's per-widget copies): parameters are set directly.
 --   * MaterialInstanceConstant / Material brushes (shared assets): we never edit a shared asset; the brush gets
 --     its own dynamic copy, and that copy is themed.
---   * force = true: the game often drives a parameter itself (fill amount, pulse colour). Hooks on the
+--   * force = true: the game often drives a parameter itself (fill amount, pulse color). Hooks on the
 --     parameter setters re-apply the theme value right after the game's write. Only installed when needed.
 -- Originals are captured before the first override, so removing an entry and reloading (Ctrl+F10) restores them.
 -- Like art.lua, no widget or material handles are kept between ticks except our own created copies' names.
@@ -17,7 +17,7 @@ local theme = require("framemage.core.theme")
 local names = require("framemage.core.names")
 
 local ctx, W, log
-local entries = {} -- normalised theme
+local entries = {} -- normalized theme
 local originals = {} -- effect key -> { scalars = {p = v}, vectors = {p = {R,G,B,A}}, textures = {p = pathName} }
 local applied = {} -- effect key -> { ["s:Param"] = true, ["v:Param"] = true, ["t:Param"] = true }
 local ownCopies = {} -- fullName of a dynamic copy we created -> { key =, parent = }
@@ -38,7 +38,7 @@ function M.loadTheme()
         return 0
     end
     local problems
-    entries, problems = theme.normalise(raw)
+    entries, problems = theme.normalize(raw)
     for _, p in ipairs(problems) do log.warn("materials.lua: %s", p) end
     local n = 0
     for _ in pairs(entries) do n = n + 1 end

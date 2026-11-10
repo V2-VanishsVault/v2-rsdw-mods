@@ -3,9 +3,9 @@
 --
 -- A theme is a folder, Art/themes/<name>/:
 --   <TextureName>.png   replaces that game texture everywhere (see dumps/textures.txt for names and sizes)
---   materials.lua       re-colours animated (material) effects
+--   materials.lua       re-colors animated (material) effects
 --   ui/*.png            Frame Mage's own panels, title bars and keycaps
---   theme.lua           colours and sizes for Frame Mage's own panels (data only)
+--   theme.lua           colors and sizes for Frame Mage's own panels (data only)
 -- Anything a theme doesn't have comes from Demi-human, so a new theme can start empty and fill in over time.
 local M = {}
 
@@ -77,7 +77,7 @@ end
 -- Has this theme been made yet (does it have its own theme.lua)?
 function M.isMade(name) return ctx.fs.exists(M.dir(name) .. "theme.lua") end
 
--- Pure: deep merge (b over a) for style tables; arrays (colours, paddings) are replaced whole. Unit-tested.
+-- Pure: deep merge (b over a) for style tables; arrays (colors, paddings) are replaced whole. Unit-tested.
 function M.merge(a, b)
     local out = {}
     for k, v in pairs(a or {}) do out[k] = v end
@@ -110,7 +110,7 @@ function M.style()
     return s
 end
 
--- A colour from the style as an FLinearColor table.
+-- A color from the style as an FLinearColor table.
 function M.color(key, alpha)
     local c = M.style()[key] or M.BUILTIN[key] or { 1, 1, 1 }
     return { R = c[1], G = c[2], B = c[3], A = alpha or c[4] or 1 }

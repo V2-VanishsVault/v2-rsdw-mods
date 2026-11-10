@@ -40,7 +40,7 @@ the skill's name and icon. It says "Max level!" when you've maxed a skill, and t
 As the number lands, a **DING!** rings: a bell synthesized live with the game's Modular Synth (a strike at ~1.3 kHz
 with a bell's 2.76x overtone and a 1.6 s ring-out). Volume and on/off are in Settings (Celebrations), and `ding.asset` can point at a
 sound asset to play instead.
-Turn it off in Settings (Celebrations), and press **Ctrl+F8** or the Preview button there to see it without levelling.
+Turn it off in Settings (Celebrations), and press **Ctrl+F8** or the Preview button there to see it without leveling.
 
 How it works: the game's popup is detected when it's created or given new data, its level and skill are read from
 the game's own notification data (`NotificationSkillUpData.Level`, `SkillData.Name` / `MaxLevel`), and the popup is
@@ -104,9 +104,9 @@ Frame Mage has four high-fantasy themes, picked in Settings (**Look > Theme**) o
 A theme is a folder, `Art/themes/<theme>/`:
 
 - **`<TextureName>.png`** replaces that game texture everywhere.
-- **`materials.lua`** re-colours animated effects (see below).
+- **`materials.lua`** re-colors animated effects (see below).
 - **`ui/`** holds Frame Mage's own panels, title bars and keycaps (`python tools/make_theme.py` makes Demi-human's).
-- **`theme.lua`** sets colours and sizes for Frame Mage's own panels.
+- **`theme.lua`** sets colors and sizes for Frame Mage's own panels.
 
 Anything a theme doesn't have comes from `demihuman`, so a new theme can start empty.
 
@@ -128,7 +128,7 @@ their parameters instead and the fills and animation keep working:
 1. Press **Ctrl+F9** with the effect on screen. `dumps/materials.txt` lists every effect, its parameters and their
    current values, as ready-to-copy entries.
 2. Copy `Art/themes/demihuman/materials.example.lua` to your theme's `materials.lua`, paste in the entries you want, and edit the values.
-   Colours can be `"#RRGGBB"`, which is treated as sRGB like a colour picker.
+   Colors can be `"#RRGGBB"`, which is treated as sRGB like a color picker.
 3. Press **Ctrl+F10**. Add `force = true` for parameters the game animates itself.
 
 Shared material assets are never edited: a brush that uses one gets its own dynamic copy, and that copy is themed.
@@ -140,7 +140,7 @@ Remove an entry and reload to restore the original values.
   `WBP_HUD/SurvivalPanel`. Runtime list entries share one key (`WBP_HUD/WBP_BuffEntry*`), so editing one
   applies to all of them.
 - **Layout.** Changes use the widget's *render transform* (translation, scale, opacity). These apply after
-  layout, so moving an element never reflows its neighbours and works on any panel type. Layouts are saved
+  layout, so moving an element never reflows its neighbors and works on any panel type. Layouts are saved
   per profile in `layouts/<profile>.lua` and re-applied every 200 ms in case game animations reset them.
 - **Mouse.** While the editor is open, a transparent full-screen catcher of Frame Mage's own takes the clicks, and
   Unreal's own UserWidget mouse events are hooked on it. Reading the button from the player controller didn't work
@@ -150,7 +150,7 @@ Remove an entry and reload to restore the original values.
   content, with placeholder labels in empty text fields. Everything is put back when you select something else.
 - **Only what you change is enforced.** A moved element keeps the game's own fades and a faded one keeps its
   slide animations: only the properties you edited are re-applied.
-- **Grid.** It's centred on the screen, with a 16-unit cell and a major line every 4 cells (`grid` in settings).
+- **Grid.** It's centered on the screen, with a 16-unit cell and a major line every 4 cells (`grid` in settings).
   Snapping measures the element's real on-screen rectangle (`GetCachedGeometry`), then moves it until its
   nearer edge reaches the next line, so left- and right-anchored elements both line up.
 - **Art.** `Image`/`Border` brushes are matched by texture name, and the PNG is loaded with

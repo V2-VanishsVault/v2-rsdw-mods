@@ -114,6 +114,10 @@ local function sizeOf(p, title)
     return M.estimate(title, S.handleFontSize, S.handlePadX, S.handlePadY)
 end
 
+-- Which bars are in the editor's group (Ctrl+click): fn(widget) -> true tints that bar.
+local marked = function() return false end
+function M.setMarked(fn) marked = fn or function() return false end end
+
 -- Show bars for targets = { {widget, rect, title}, ... } (priority order). screen = { w, h }.
 function M.show(targets, screenW, screenH)
     if not ensure() then return end
@@ -132,6 +136,23 @@ function M.show(targets, screenW, screenH)
             if bar then
                 p.slot:SetPosition({ X = bar.left, Y = bar.top })
                 p.plate:SetVisibility(3)
+                -- a grouped bar is filled with gold, its lettering dark; the rest as they are
+                local on = marked(targets[i].widget) == true
+                if on then
+                    -- (every time: a plate can host another element after a refresh, and the gold must hold)
+                    local art = style.goldPlate(p.plate, host.uw)
+                    p.plate:SetRenderOpacity(1) -- (fully solid: see-through, the steel read as tan over the warm scene)
+                    p.text:SetColorAndOpacity({ SpecifiedColor = style.selectedInk(), ColorUseRule = 0 })
+                    if not p.grouped then log.info("editor: %s's bar filled gold (%s)", tostring(p.title),
+                        art and "gold plate" or "gold color") end
+                    p.grouped = true
+                elseif p.grouped ~= false then
+                    p.grouped = false
+                    pcall(function() p.plate:SetBrushColor({ R = 1, G = 1, B = 1, A = 1 }) end)
+                    pcall(function() p.plate:SetRenderOpacity(S.handleAlpha) end)
+                    style.titlePlate(p.plate, host.uw)
+                    p.text:SetColorAndOpacity({ SpecifiedColor = style.ink(), ColorUseRule = 0 })
+                end
             else
                 p.plate:SetVisibility(1)
             end

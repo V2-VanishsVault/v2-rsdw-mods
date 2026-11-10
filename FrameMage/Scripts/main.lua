@@ -7,7 +7,7 @@
 -- To add a feature: create framemage/features/<name>.lua exporting `init(ctx)`, then add its name to FEATURES.
 
 local FEATURES = { "layout", "art", "materials", "grid", "editor", "inspector", "share", "ding", "celebrate", "replace",
-    "bars" }
+    "bars", "survival", "status", "inventory" }
 
 local function modDir()
     local src = (debug.getinfo(1, "S").source or ""):gsub("^@", "")
@@ -18,6 +18,9 @@ end
 
 local log = require("framemage.core.log")
 local sched = require("framemage.core.sched")
+-- safe to reload in a running game (UE4SS Ctrl+R): this run's objects get their own names (see core/reload.lua)
+local reload = require("framemage.core.reload")
+reload.install()
 
 local DIR = modDir()
 log.info("Frame Mage starting from %s", DIR)
@@ -66,24 +69,17 @@ ctx.themes = require("framemage.core.themes")
 ctx.themes.init(ctx)
 require("framemage.editor.style").init(ctx)
 
--- Master switch (Settings > Look > "Frame Mage on"). Off: every change is handed back to the game live; on: re-applied.
--- Features opt in with setEnabled(on); hotkeys other than developer ones stop working while off.
-ctx.enabled = ctx.settings.enabled ~= false
-function ctx.setEnabled(on)
-    on = on and true or false
-    if on == ctx.enabled then return end
-    ctx.enabled = on
-    ctx.settings.enabled = on
-    ctx.saveSettings()
-    for _, name in ipairs(FEATURES) do
-        local f = ctx.features[name]
-        if f and f.setEnabled then
-            local ok, err = pcall(f.setEnabled, on)
-            if not ok then log.error("feature '%s' could not switch %s: %s", name, on and "on" or "off", tostring(err)) end
-        end
-    end
-    log.info("Frame Mage %s", on and "on" or "off")
-end
+-- Frame Mage is always on while loaded: turning it off is done the usual way (UE4SS's mods.txt or a mod manager).
+-- An in-game switch had no way back once its panel went away with everything else. A saved `enabled = false`
+-- from that switch is ignored.
+ctx.enabled = true
+
+-- anything a previous run (before a reload) left on the game's screens goes first: on the game thread, before any
+-- feature's first tick (they'd see the leftovers as their own work already done)
+sched.now("reload.cleanup", function()
+    local okC, errC = pcall(reload.cleanup, ctx.widgets, log)
+    if not okC then log.warn("reload cleanup failed: %s", tostring(errC)) end
+end)
 
 for _, name in ipairs(FEATURES) do
   if ctx.settings.features[name] == false then

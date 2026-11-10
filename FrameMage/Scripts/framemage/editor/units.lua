@@ -207,7 +207,19 @@ local function leafUnion(w)
     return out
 end
 
+-- Elements Frame Mage draws somewhere else (the status effects, as gauges in an overlay of ours): where they
+-- really are, as last reported. fullName -> { rect, at }.
+local drawn = {}
+M.DRAWN_SECONDS = 1.0 -- a report older than this is stale (the gauges are gone): measure the element itself
+
+function M.setDrawn(fullName, rect)
+    drawn[fullName] = rect and { rect = rect, at = os.clock() } or nil
+end
+
 function M.contentRect(w)
+    local okF, full = pcall(W.fullName, w)
+    local d = okF and drawn[full]
+    if d and os.clock() - d.at <= M.DRAWN_SECONDS then return d.rect end
     local r = geometry.rect(w)
     if not r then return nil end
     local okK, key = pcall(W.key, w)
@@ -245,6 +257,57 @@ local function listTitle(panel)
     return "List"
 end
 
+-- Pure: is a hidden game piece left out (of the Hidden panel, and of the elements you can pick or step through
+-- while it shows nothing)? By its title (editor.hiddenSkip, whole name) or its class (editor.hiddenSkipClasses,
+-- part of the name); any case. Unit-tested.
+function M.skipHidden(title, skip, className, classSkip)
+    local t = (title or ""):lower()
+    for _, s in ipairs(skip or {}) do
+        if t == tostring(s):lower() then return true end
+    end
+    local c = (className or ""):lower()
+    if c ~= "" then
+        for _, s in ipairs(classSkip or {}) do
+            if c:find(tostring(s):lower(), 1, true) then return true end
+        end
+    end
+    return false
+end
+
+-- Pure: is an element never offered, by its title (editor.selectSkip: the name, or the name plus a number)?
+-- Unit-tested.
+function M.skipSelect(title, skip)
+    local t = (title or ""):lower()
+    for _, s in ipairs(skip or {}) do
+        local k = tostring(s):lower()
+        if t == k or t:match("^(.-)%s*%d+$") == k then return true end
+    end
+    return false
+end
+
+-- Pure: can an element showing nothing be offered, given where it measures? Not when its place is unknown (it
+-- measures at the screen's top-left corner: not on screen, never laid out) or it would cover most of the screen
+-- (a stand-in there would catch every click). Unit-tested.
+function M.emptyPlaceable(r, screenArea, maxShare)
+    if not r then return false end
+    if r.left <= 1 and r.top <= 1 then return false end
+    local a = math.max(0, r.right - r.left) * math.max(0, r.bottom - r.top)
+    return a <= screenArea * (maxShare or 0.5)
+end
+
+-- Pure: the stand-in box for an element showing nothing, at `at`: its own box `own` when that is bigger than the
+-- usual stand-in (w x h) yet not most of the screen, at least w x h. Unit-tested.
+function M.standIn(at, own, w, h, screenArea)
+    local r = { left = at.left, top = at.top, right = at.left + w, bottom = at.top + h }
+    if own and M.emptyPlaceable(own, screenArea, 0.5) then
+        local ow, oh = own.right - own.left, own.bottom - own.top
+        if ow * oh > w * h then
+            r = { left = own.left, top = own.top, right = own.left + math.max(ow, w), bottom = own.top + math.max(oh, h) }
+        end
+    end
+    return r
+end
+
 -- Every unit on screen: { widget, title, rect (content), empty = bool, list = bool }.
 function M.collect(roots, screenW, screenH)
     local out = {}
@@ -260,6 +323,11 @@ function M.collect(roots, screenW, screenH)
         if not r and empty then r = (anchor and geometry.rect(anchor)) or geometry.rect(w) end
         if not r then return end
         if r.right < 0 or r.bottom < 0 or r.left > screenW or r.top > screenH then return end
+        -- showing nothing: only where it has a real place, and not the pieces the Hidden panel leaves out either
+        if empty then
+            if not M.emptyPlaceable(r, screenArea, S.handleMaxScreenShare) then return end
+            if M.skipHidden(title, S.hiddenSkip, classOf(w), S.hiddenSkipClasses) then return end
+        end
         out[#out + 1] = { widget = w, title = title, key = key, rect = r, empty = empty or false,
             list = isList or false, area = geometry.area(r), nameKey = nameKey }
     end
@@ -460,6 +528,20 @@ function M.collect(roots, screenW, screenH)
         local last = u.nameKey or (u.key or ""):match("([^/]+)$")
         local bare = last and last:gsub("%*$", ""):gsub("_C$", "")
         if bare and S.renames and S.renames[bare] then u.title = S.renames[bare] end
+        if u.key and S.renames and S.renames[u.key] then u.title = S.renames[u.key] end -- (a whole key wins)
+    end
+    -- elements never offered (editor.listSkip, by key): containers that hold others, not elements of their own
+    if S.listSkip or S.selectSkip or S.selectSkipClasses then
+        local keep = {}
+        for _, u in ipairs(out) do
+            local skip = false
+            for _, k in ipairs(S.listSkip or {}) do if u.key == k then skip = true end end
+            if M.skipSelect(u.title, S.selectSkip) then skip = true end
+            if M.skipHidden(nil, nil, classOf(u.widget), S.selectSkipClasses)
+                or M.skipHidden(nil, nil, u.key, S.selectSkipClasses) then skip = true end
+            if not skip then keep[#keep + 1] = u end
+        end
+        out = keep
     end
     return out
 end

@@ -3,21 +3,24 @@
 --
 -- The player's bars (health, stamina, special attack) are animated materials, so a PNG can't replace them without
 -- freezing their fill. Instead a thin overlay image of ours (the theme's ui/bar_bevel.png or bar_facet.png: white light and black
--- shade only, so it suits every colour) is added into each bar's own Overlay, just above the bar image. The fill
+-- shade only, so it suits every color) is added into each bar's own Overlay, just above the bar image. The fill
 -- and its effects keep working underneath. Switching to flat (or turning Frame Mage off) removes the overlays.
 --
 -- Rings: each bar's icon (stamina, health, special) is shown on a ring (ui/badge_ring.png: a dark disc with a
 -- gold hairline), with a soft shadow, sitting OVER the start of its bar so the bar seems to grow out of it. The
 -- game doesn't let scripts move widgets between panels (ReplaceChildAt isn't callable), so the game's icon stays
--- where it is, invisible and half a ring wide (the bar then starts under the ring's centre), and the ring, its
+-- where it is, invisible and half a ring wide (the bar then starts under the ring's center), and the ring, its
 -- shadow and a copy of the icon go into the bar's own container, drawn above the bar. Switching rings off removes
 -- ours and brings the game's icon back.
 --
 -- Safety: handles are used only within the tick they're found in. Bars are found when their user widget is
 -- announced, and re-found by scanning when the style changes.
+local measure = require("framemage.core.measure")
+
 local M = {}
 
 local ctx, W, log
+local styleBar -- style(barWidget, replace), defined further down
 local made = 0
 
 local OVERLAY_PREFIX = "FM_Bevel_"
@@ -119,7 +122,7 @@ local function wrapIcon(icon)
     if not tex then return end
     local B = ctx.settings.bars
     local size = B.ringSize
-    -- the game's icon: invisible, and half a ring wide so the bar starts under the ring's centre
+    -- the game's icon: invisible, and half a ring wide so the bar starts under the ring's center
     local okT, iconTex = pcall(function() return icon.Brush.ResourceObject end)
     if not iconSizes[iconName] then
         pcall(function()
@@ -128,12 +131,12 @@ local function wrapIcon(icon)
         end)
     end
     local orig = iconSizes[iconName] or { X = 33, Y = 33 }
-    -- the game's icon: hidden in place (the caps tick keeps it so, as the game re-shows it); the ring is centred on
+    -- the game's icon: hidden in place (the caps tick keeps it so, as the game re-shows it); the ring is centered on
     -- the start of the bar, its left half over the icon's old place
     hideGameIcon(icon)
     made = made + 1
     local box = StaticConstructObject(StaticFindObject("/Script/UMG.Overlay"), tree, FName(RING_BOX .. made))
-    local function centred(w)
+    local function centered(w)
         local sl = box:AddChildToOverlay(w)
         sl:SetHorizontalAlignment(2)
         sl:SetVerticalAlignment(2)
@@ -150,7 +153,7 @@ local function wrapIcon(icon)
                 TintColor = { SpecifiedColor = { R = 1, G = 1, B = 1, A = 1 }, ColorUseRule = 0 } })
         end)
         pcall(function() sh:SetDesiredSizeOverride({ X = ss, Y = ss }) end)
-        centred(sh)
+        centered(sh)
         pcall(function() sh:SetRenderTranslation({ X = B.shadowOffsetX, Y = B.shadowOffsetY }) end)
         pcall(function() sh:SetRenderOpacity(B.shadowOpacity) end)
     end
@@ -160,8 +163,8 @@ local function wrapIcon(icon)
             TintColor = { SpecifiedColor = { R = 1, G = 1, B = 1, A = 1 }, ColorUseRule = 0 } })
     end)
     pcall(function() ring:SetDesiredSizeOverride({ X = size, Y = size }) end)
-    centred(ring)
-    -- a copy of the game's icon on the ring (same texture and colour, a little smaller), or another game icon
+    centered(ring)
+    -- a copy of the game's icon on the ring (same texture and color, a little smaller), or another game icon
     -- chosen in bars.iconOverrides (stamina: the Agility skill's running figure)
     local override = B.iconOverrides and B.iconOverrides[iconName]
     local alt = override and gameTexture(override)
@@ -170,7 +173,7 @@ local function wrapIcon(icon)
         local copy = StaticConstructObject(StaticFindObject("/Script/UMG.Image"), tree, FName("FM_RingIcon_" .. made))
         art.guarded(function() copy:SetBrushFromTexture(iconTex, false) end)
         -- the game's icon textures are a little taller than wide (52x56): keep their proportions, so the glyph
-        -- isn't squashed upward, then nudge it to sit in the ring's centre
+        -- isn't squashed upward, then nudge it to sit in the ring's center
         local h = orig.Y * B.iconScale
         local w = h
         pcall(function()
@@ -178,18 +181,19 @@ local function wrapIcon(icon)
             if tx > 0 and ty > 0 then w = h * tx / ty end
         end)
         pcall(function() copy:SetDesiredSizeOverride({ X = w, Y = h }) end)
-        pcall(function() copy:SetRenderTranslation({ X = 0, Y = B.iconNudgeY }) end)
+        -- (the nudge suits the game's own 52x56 icons; a substituted icon - square, its glyph centered - needs none)
+        pcall(function() copy:SetRenderTranslation({ X = 0, Y = alt and 0 or B.iconNudgeY }) end)
         pcall(function()
             local c = icon.ColorAndOpacity
             copy:SetColorAndOpacity({ R = c.R, G = c.G, B = c.B, A = c.A })
         end)
-        centred(copy)
+        centered(copy)
         ringIcons[iconName] = { copy = copy, override = override, done = alt ~= nil }
     end
     local hs = holder:AddChildToOverlay(box) -- last in the bar's container: drawn above the bar
     hs:SetHorizontalAlignment(1)
     hs:SetVerticalAlignment(2)
-    -- centre the ring on the start of the bar: the box is as wide as its widest layer (the shadow), the ring sits
+    -- center the ring on the start of the bar: the box is as wide as its widest layer (the shadow), the ring sits
     -- in its middle
     local boxW = size
     if shadowTex then boxW = math.max(size, size * 160 / 112) end
@@ -213,6 +217,7 @@ local function unwrapIcon(icon)
 end
 
 local originalPad = {} -- bar widget name -> its slot padding before spacing was added
+local extraTop = {} -- bar widget name -> a correction (UI units) so each row sits exactly rowPitch below the last
 local loggedRow = {} -- bar widget name -> its row measurements have been logged
 
 -- Pure: the padding above and below one bar so its row (padding + the bar's own height) is exactly `pitch` tall.
@@ -252,8 +257,47 @@ local function space(barWidget)
                 end
             end
         end
-        slot:SetPadding({ Left = o.Left, Top = top, Right = o.Right, Bottom = bottom })
+        slot:SetPadding({ Left = o.Left, Top = top + (extraTop[n] or 0), Right = o.Right, Bottom = bottom })
     end)
+end
+
+-- Pure: the correction to add to the first row (of tops, in order) that isn't rowPitch below the one before it;
+-- returns its index and the amount, or nil when every row is in place (within half a unit). One row at a time: a
+-- row's correction moves every row below it too. Unit-tested.
+function M.spacingFix(tops, pitch)
+    for i = 2, #tops do
+        local d = tops[1] + (i - 1) * pitch - tops[i]
+        if math.abs(d) > 0.5 then return i, d end
+    end
+    return nil
+end
+
+local BAR_ORDER = { "WBP_HUD_Vitals_StaminaBar_C", "WBP_HUD_Vitals_HealthBar_C", "WBP_HUD_Vitals_SpecialChargeBar_C" }
+
+-- The game's rows aren't all padded alike (the health and special rows sit closer than stamina and health), so
+-- after spacing each bar, measure where the three actually are and correct the first one that's off.
+local function evenRows()
+    if not lookOn() then return end
+    local bars, tops = {}, {}
+    for _, cls in ipairs(BAR_ORDER) do
+        for _, b in pairs(FindAllOf(cls) or {}) do
+            if W.valid(b) and W.isInstance(b) and W.isVisible(b) then bars[#bars + 1] = b break end
+        end
+    end
+    if #bars ~= 3 then return end
+    for i, b in ipairs(bars) do
+        local r = measure.layoutRect(b)
+        if not r then return end
+        tops[i] = r.top
+    end
+    local i, d = M.spacingFix(tops, ctx.settings.bars.rowPitch)
+    if not i then return end
+    local okN, n = pcall(W.name, bars[i])
+    if not okN then return end
+    extraTop[n] = (extraTop[n] or 0) + d
+    space(bars[i])
+    measure.invalidate()
+    log.info("bars: %s row moved %.1f so the rows are evenly spaced", n, d)
 end
 
 local function applyBadges(barWidget, rebuild)
@@ -288,7 +332,7 @@ end
 -- Shape: slimmer bars with a pointed right end, in two parts that meet exactly:
 --   the body: the bar's own box, ended short by the point's length; its frame draws our dark track, the game's fill
 --   runs inside it, and (by style) a shading overlay and the gold edge are stretched over it;
---   the point: one fixed-size box of ours beside it holding the point's dark track, its colour (shown when the bar
+--   the point: one fixed-size box of ours beside it holding the point's dark track, its color (shown when the bar
 --   is full), its shading and its gold edges, each simply stretched to the box.
 -- (9-slicing the point into one long image was tried first: the game sized the slices unpredictably.)
 
@@ -326,7 +370,7 @@ function M.endWidth(B, pointed)
     return B.endWidth or 3
 end
 
-local TIP_PREFIX, TIP_COLOUR = "FM_Tip_", "FM_TipColour_"
+local TIP_PREFIX, TIP_COLOR = "FM_Tip_", "FM_TipColor_"
 -- Pure: is this our point box (by widget name)? Unit-tested.
 function M.isTip(name) return name:sub(1, #TIP_PREFIX) == TIP_PREFIX end
 
@@ -345,15 +389,15 @@ function M.parseValue(text)
     return tonumber(cur), tonumber(max)
 end
 
--- Pure: the point's colour from the bar material's main colour. The material draws brighter than its main colour,
--- so the point is brightened to match: colour * gain + lift, each channel at most 1. Unit-tested.
-function M.tipColour(c, gain, lift)
+-- Pure: the point's color from the bar material's main color. The material draws brighter than its main color,
+-- so the point is brightened to match: color * gain + lift, each channel at most 1. Unit-tested.
+function M.tipColor(c, gain, lift)
     gain, lift = gain or 1, lift or 0
     local function ch(v) return math.min(1, v * gain + lift) end
     return { R = ch(c.R), G = ch(c.G), B = ch(c.B), A = c.A or 1 }
 end
 
-local FALLBACK_COLOUR = { HealthBar = { R = 0.578, G = 0.016, B = 0.023, A = 1 },
+local FALLBACK_COLOR = { HealthBar = { R = 0.578, G = 0.016, B = 0.023, A = 1 },
     StaminaBar = { R = 0.70, G = 0.48, B = 0.02, A = 1 }, SpecialChargeBar = { R = 0.023, G = 0.153, B = 0.631, A = 1 } }
 
 local shaped = {} -- bar widget name -> the game's values, to restore
@@ -369,14 +413,14 @@ local function ancestor(w, cls, limit)
     return nil
 end
 
-local function barColour(img, barName)
+local function barColor(img, barName)
     local ok, c = pcall(function()
         local mid = img.Brush.ResourceObject
         local v = mid:GetVectorParameterValue(FName("Health Bar Main Color"))
         return { R = v.R, G = v.G, B = v.B, A = 1 }
     end)
     if ok and c and type(c.R) == "number" and (c.R + c.G + c.B) > 0.01 then return c end
-    return FALLBACK_COLOUR[barName] or { R = 0.5, G = 0.5, B = 0.5, A = 1 }
+    return FALLBACK_COLOR[barName] or { R = 0.5, G = 0.5, B = 0.5, A = 1 }
 end
 
 -- The pieces of one bar: its fill image, the container around it, its frame, its size box and the box's container.
@@ -422,38 +466,71 @@ function M.tipStrips(n, pointed)
     return out
 end
 
+-- Pure: how much the bar's own paint is stretched (from its left edge, clipped at the body's end) so it and the
+-- end's copy are one stripe of paint across body + end: the paint has a bright final column (its glow), and with
+-- different stretches the body's glow showed as a line where the end began. Unit-tested.
+function M.paintStretch(bodyWidth, length)
+    if not (bodyWidth and bodyWidth > 0) then return 1 end
+    return (bodyWidth + (length or 0)) / bodyWidth
+end
+
+-- The body's paint stretched over body + end and clipped at the body's end (scale 1: back to the game's own).
+local function stretchPaint(img, fillPanel, rec, scale)
+    if rec.clip == nil then pcall(function() rec.clip = fillPanel.Clipping end) end
+    pcall(function() img:SetRenderTransformPivot({ X = 0, Y = 0.5 }) end)
+    pcall(function() img:SetRenderScale({ X = scale, Y = 1 }) end)
+    local clip = scale ~= 1 and 1 or (rec.clip or 0)
+    pcall(function() fillPanel.Clipping = clip end)
+    pcall(function() fillPanel:SetClipping(clip) end)
+end
+
+-- Pure: where the full-size copy of the bar sits inside one strip of the end (strip-local UI units): the copy
+-- spans the body and the end (bodyWidth + length), so its left edge is bodyWidth left of the strip and its top is
+-- the strip's band of the height above it. Unit-tested.
+function M.copyPlacement(bodyWidth, length, height, v0)
+    return { x = -bodyWidth, y = -height * v0, w = bodyWidth + length, h = height }
+end
+
 local warnedStrips = false
--- The end's colour layer: a column of thin images of the bar's material, each cropped (brush UV region) to its own
--- band of the bar's right end.
-local function materialStrips(tree, mat, height, length, pointed, B)
-    if not (height and height > 0) then return nil end
+-- The end's color layer: a column of thin strips, each clipped to its own piece of the end's shape and holding a
+-- copy of the bar's paint at the bar's full size, placed where the bar would continue. (Cropping the material to a
+-- tiny image drew nothing in game; a full-size copy draws like the bar itself, and plain clipping cuts it.)
+local function materialStrips(tree, mat, height, length, pointed, B, bodyWidth)
+    if not (height and height > 0 and bodyWidth and bodyWidth > 0) then return nil end
     local ok, box = pcall(function()
         made = made + 1
-        local col = StaticConstructObject(StaticFindObject("/Script/UMG.VerticalBox"), tree, FName("FM_TipPaint_" .. made))
+        local col = StaticConstructObject(StaticFindObject("/Script/UMG.VerticalBox"), tree, FName(TIP_COLOR .. made))
         local n = math.max(4, math.floor(height / (B.tipStripHeight or 1) + 0.5))
-        local u0 = 1 - (B.tipUV or 0.03)
         for i, s in ipairs(M.tipStrips(n, pointed)) do
             local sb = StaticConstructObject(StaticFindObject("/Script/UMG.SizeBox"), tree, FName("FM_TipStrip_" .. made .. "_" .. i))
             sb:SetHeightOverride(height * (s.v1 - s.v0))
             sb:SetWidthOverride(math.max(0, length * s.w))
+            pcall(function() sb.Clipping = 1 end)
+            pcall(function() sb:SetClipping(1) end) -- clip to bounds: only this strip's piece of the copy shows
             if s.w > 0 then
+                local canvas = StaticConstructObject(StaticFindObject("/Script/UMG.CanvasPanel"), tree, FName("FM_TipCanvas_" .. made .. "_" .. i))
                 local im = StaticConstructObject(StaticFindObject("/Script/UMG.Image"), tree, FName("FM_TipBand_" .. made .. "_" .. i))
                 im:SetBrush({ ResourceObject = mat, ImageSize = { X = 32, Y = 32 }, DrawAs = 3, Tiling = 0,
-                    UVRegion = { Min = { X = u0, Y = s.v0 }, Max = { X = 1, Y = s.v1 }, bIsValid = true },
                     TintColor = { SpecifiedColor = { R = 1, G = 1, B = 1, A = 1 }, ColorUseRule = 0 } })
                 im:SetVisibility(3)
-                sb:SetContent(im)
+                local p = M.copyPlacement(bodyWidth, length, height, s.v0)
+                local cs = canvas:AddChildToCanvas(im)
+                cs:SetAutoSize(false)
+                cs:SetPosition({ X = p.x, Y = p.y })
+                cs:SetSize({ X = p.w, Y = p.h })
+                canvas:SetVisibility(3)
+                sb:SetContent(canvas)
             end
             local sl = col:AddChildToVerticalBox(sb)
             sl:SetHorizontalAlignment(1) -- left: the strip starts where the body ends
         end
-        col:SetVisibility(3)
+        col:SetVisibility(1) -- shown once the bar is known to be full (as the matched color is)
         return col
     end)
     if ok then return box end
     if not warnedStrips then
         warnedStrips = true
-        log.warn("bars: couldn't paint the bar ends from the material (%s); using a plain colour", tostring(box))
+        log.warn("bars: couldn't paint the bar ends from the material (%s); using a plain color", tostring(box))
     end
     return nil
 end
@@ -486,7 +563,7 @@ local function shape(barWidget)
         shaped[barName] = rec
     end
     local height = rec.height and rec.height > 0 and M.barHeight(rec.height, B.extraHeight, B.heightScale) or nil
-    -- the body: its height, centred in its container, ended short by the point's length
+    -- the body: its height, centered in its container, ended short by the point's length
     if height then pcall(function() box:SetHeightOverride(height) end) end
     pcall(function() box.Slot:SetVerticalAlignment(2) end)
     pcall(function() box.Slot:SetHorizontalAlignment(0) end) -- fill: the body always reaches the point
@@ -515,19 +592,30 @@ local function shape(barWidget)
         sl:SetVerticalAlignment(0)
     end
     layer(stretchedImage(tree, art, owner, endArt.track, "FM_TipTrack_" .. made))
-    -- the end's colour: the bar's own material (the same paint, glow and fill), in thin strips cut to the end's
-    -- shape, each showing its band of the bar's right end; or, if that fails, a tinted shape shown when full
+    -- the end's color: the bar's own paint continued past its end (clipped full-size copies), or a shape in the
+    -- bar's main color; either shown once the bar is full
     local okM, mat = pcall(function() return img.Brush.ResourceObject end)
-    local strips = okM and W.valid(mat) and B.tipFromMaterial ~= false
-        and materialStrips(tree, mat, height, M.endWidth(B, pointed), pointed, B)
+    local bodyWidth
+    pcall(function()
+        box:ForceLayoutPrepass()
+        bodyWidth = box:GetDesiredSize().X
+    end)
+    if not rec.loggedWidth then
+        rec.loggedWidth = true
+        log.info("bars: %s body %.1f x %.1f, end %d (point color: %s)", barName, bodyWidth or -1, height or -1,
+            M.endWidth(B, pointed), tostring(B.tipPaint))
+    end
+    local strips = okM and W.valid(mat) and B.tipPaint ~= "solid"
+        and materialStrips(tree, mat, height, M.endWidth(B, pointed), pointed, B, bodyWidth)
+    stretchPaint(img, fillPanel, rec, strips and M.paintStretch(bodyWidth, M.endWidth(B, pointed)) or 1)
     if strips then
         layer(strips)
     else
-        local colour = stretchedImage(tree, art, owner, endArt.cap, TIP_COLOUR .. made)
-        if colour then
-            colour:SetColorAndOpacity(M.tipColour(barColour(img, barName), B.tipGain, B.tipLift))
-            colour:SetVisibility(1) -- shown once the bar is known to be full
-            layer(colour)
+        local color = stretchedImage(tree, art, owner, endArt.cap, TIP_COLOR .. made)
+        if color then
+            color:SetColorAndOpacity(M.tipColor(barColor(img, barName), B.tipGain, B.tipLift))
+            color:SetVisibility(1) -- shown once the bar is known to be full
+            layer(color)
         end
     end
     if endArt.shade then layer(stretchedImage(tree, art, owner, endArt.shade, "FM_TipShade_" .. made)) end
@@ -598,6 +686,7 @@ local function unshape(barWidget)
     if not (rec and img and fillPanel and border and box and holder) then return end
     local tip = childNamed(holder, M.isTip)
     if tip then pcall(function() tip:RemoveFromParent() end) end
+    stretchPaint(img, fillPanel, rec, 1)
     removeOutline(barWidget)
     if rec.height then pcall(function() box:SetHeightOverride(rec.height) end) end
     if rec.valign then pcall(function() box.Slot:SetVerticalAlignment(rec.valign) end) end
@@ -626,8 +715,148 @@ local function valueOf(barWidget)
     return cur, max
 end
 
+-- Percentages on the stamina and special bars (bars.percentText): the health bar shows its value ("200 / 200") but
+-- the other two show nothing. Their fill is read from their material (the game's own "Fill from Avaliable", times
+-- "Available health/stamina") and shown as a text over the bar like the health bar's, in its font.
+local PERCENT_BARS = { WBP_HUD_Vitals_StaminaBar_C = true, WBP_HUD_Vitals_SpecialChargeBar_C = true }
+local PERCENT_PREFIX = "FM_Percent_"
+local healthFont -- (looked up each time a label is made) the health bar's value text: { font, color, shadowOffset, shadowColor, slot = {h, v, pad} }
+
+-- Pure: the percentage shown for a fill (0..1) of the available part (0..1). Unit-tested.
+function M.percentText(fill, available)
+    local v = math.max(0, math.min(1, (fill or 0) * (available or 1)))
+    return string.format("%d%%", math.floor(v * 100 + 0.5))
+end
+
+local function healthStyle()
+    for _, hb in pairs(FindAllOf("WBP_HUD_Vitals_HealthBar_C") or {}) do
+        if W.valid(hb) and W.isInstance(hb) then
+            local vt
+            W.walk(hb, function(w)
+                if vt then return false end
+                local ok, n = pcall(W.name, w)
+                if ok and n == "ValueText" then vt = w return false end
+                return true
+            end, 0, 12)
+            local tb
+            if vt then
+                W.walk(vt, function(w)
+                    if tb then return false end
+                    -- (the game's text widget wraps a text of its own class: any *TextBlock that isn't the wrapper)
+                    local ok, c = pcall(W.className, w)
+                    if ok and w ~= vt and c:find("TextBlock", 1, true) and not c:find("^WBP_") then tb = w return false end
+                    return true
+                end, 0, 6)
+            end
+            if tb then
+                local f = {}
+                pcall(function() f.font = tb.Font end)
+                pcall(function() f.color = tb.ColorAndOpacity end)
+                pcall(function() f.shadowOffset = tb.ShadowOffset end)
+                pcall(function() f.shadowColor = tb.ShadowColorAndOpacity end)
+                pcall(function()
+                    local sl = vt.Slot
+                    f.slot = { h = sl.HorizontalAlignment, v = sl.VerticalAlignment,
+                        pad = { Left = sl.Padding.Left, Top = sl.Padding.Top, Right = sl.Padding.Right,
+                            Bottom = sl.Padding.Bottom } }
+                end)
+                healthFont = f
+                return f
+            end
+        end
+    end
+end
+
+local function readScalar(mat, name)
+    local ok, v = pcall(function() return mat:K2_GetScalarParameterValue(FName(name)) end)
+    if ok and type(v) == "number" then return v end
+    return nil
+end
+
+-- The game's rate labels beside each bar ("2 STATS", "HP/S", "SPEC/S", shown while a menu is open): never shown
+-- (bars.hideRateLabels). They sit next to each bar in its row: StaminaRegenValue, HealthRegenValue,
+-- SpecialChargeRegenValue (a background and a per-second value).
+function M.isRateLabel(name) return type(name) == "string" and name:find("RegenValue$") ~= nil end
+
+local function hideRateLabels()
+    if not (ctx.enabled and ctx.settings.bars.hideRateLabels ~= false) then return end
+    for _, cls in ipairs(BAR_ORDER) do
+        for _, bar in pairs(FindAllOf(cls) or {}) do
+            local row = W.valid(bar) and W.isInstance(bar) and W.parent(bar)
+            if row then
+                for _, c in ipairs(W.children(row)) do
+                    local ok, n = pcall(W.name, c)
+                    if ok and M.isRateLabel(n) then
+                        pcall(function() if c:GetRenderOpacity() ~= 0 then c:SetRenderOpacity(0) end end)
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function percentLabels()
+    local want = ctx.enabled and ctx.settings.bars.percentText ~= false
+    for cls in pairs(PERCENT_BARS) do
+        for _, bar in pairs(FindAllOf(cls) or {}) do
+            if W.valid(bar) and W.isInstance(bar) then
+                local img, _, _, _, holder = parts(bar)
+                if holder then
+                    local label = childNamed(holder, function(n) return n:sub(1, #PERCENT_PREFIX) == PERCENT_PREFIX end)
+                    if not want then
+                        if label then pcall(function() label:RemoveFromParent() end) end
+                    else
+                        if not label then
+                            local hs = healthStyle() or {}
+                            local owner = W.owner(holder)
+                            local tree = owner and owner.WidgetTree
+                            if tree then
+                                made = made + 1
+                                label = StaticConstructObject(StaticFindObject("/Script/UMG.TextBlock"), tree,
+                                    FName(PERCENT_PREFIX .. made))
+                                -- the game's font at a set size (the health number's own font can't always be read,
+                                -- and the default is far too big)
+                                local gf = require("framemage.editor.legend").gameFont()
+                                local size = ctx.settings.bars.percentFontSize or 10
+                                if gf then
+                                    pcall(function() label:SetFont({ FontObject = gf.FontObject,
+                                        TypefaceFontName = gf.TypefaceFontName, Size = size }) end)
+                                elseif hs.font then
+                                    pcall(function() label:SetFont(hs.font) end)
+                                end
+                                if hs.color then pcall(function() label:SetColorAndOpacity(hs.color) end) end
+                                if hs.shadowOffset then pcall(function() label:SetShadowOffset(hs.shadowOffset) end) end
+                                if hs.shadowColor then
+                                    pcall(function() label:SetShadowColorAndOpacity(hs.shadowColor) end)
+                                end
+                                log.info("bars: percentage label on %s (%s)", tostring(W.name(bar)),
+                                    gf and "the game's font" or (hs.font and "the health number's font" or "default font"))
+                                pcall(function() label:SetJustification(1) end)
+                                label:SetVisibility(3)
+                                local sl = holder:AddChildToOverlay(label)
+                                local p = hs.slot or {}
+                                pcall(function() sl:SetHorizontalAlignment(p.h or 2) end)
+                                pcall(function() sl:SetVerticalAlignment(p.v or 2) end)
+                                if p.pad then pcall(function() sl:SetPadding(p.pad) end) end
+                            end
+                        end
+                        if label and img then
+                            local okM, mat = pcall(function() return img.Brush.ResourceObject end)
+                            local fill = okM and readScalar(mat, "Fill from Avaliable")
+                            if fill then
+                                local t = M.percentText(fill, readScalar(mat, "Available health/stamina") or 1)
+                                pcall(function() label:SetText(FText(t)) end)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
 -- Every few frames: keep the game's bar icons collapsed under the rings (the game re-shows them), and show each
--- point's colour only when its bar is full.
+-- point's color only when its bar is full.
 local overrideWait = 0
 local function updateCaps()
     if badgesOn() then
@@ -664,19 +893,37 @@ local function updateCaps()
             end
         end
     end
-    if not lookOn() then return end -- the end piece (point or flat) shows the colour only when full
+    if not lookOn() then return end -- the end piece (point or flat) shows the color only when full
     for _, cls in ipairs({ "WBP_HUD_Vitals_HealthBar_C", "WBP_HUD_Vitals_StaminaBar_C", "WBP_HUD_Vitals_SpecialChargeBar_C" }) do
         for _, bar in pairs(FindAllOf(cls) or {}) do
             if W.valid(bar) and W.isInstance(bar) then
-                local _, _, _, _, holder = parts(bar)
+                local img, _, _, _, holder = parts(bar)
                 local tip = holder and childNamed(holder, M.isTip)
+                -- the game can give a bar a new material (after sleeping, a respawn...): the point's copies of the
+                -- old one then draw dark, so the bar is styled again with the new one
+                if tip and img and styleBar then
+                    local okM, cur = pcall(function() return W.fullName(img.Brush.ResourceObject) end)
+                    local band
+                    W.walk(tip, function(w)
+                        if band then return false end
+                        local ok, n = pcall(W.name, w)
+                        if ok and n:sub(1, 11) == "FM_TipBand_" then band = w return false end
+                        return true
+                    end, 0, 6)
+                    local okB, old = pcall(function() return W.fullName(band.Brush.ResourceObject) end)
+                    if band and okM and okB and cur ~= old then
+                        log.info("bars: %s has a new material: its point is repainted", tostring(W.name(bar)))
+                        styleBar(bar, true)
+                        tip = nil
+                    end
+                end
                 if tip then
                     -- no readable value counts as full: the stamina bar hides its text when it's full
                     local c, m = valueOf(bar)
                     local full = M.isFull(c, m)
                     W.walk(tip, function(w)
                         local ok, n = pcall(W.name, w)
-                        if ok and n:sub(1, #TIP_COLOUR) == TIP_COLOUR then
+                        if ok and n:sub(1, #TIP_COLOR) == TIP_COLOR then
                             pcall(function() w:SetVisibility(full and 3 or 1) end)
                             return false
                         end
@@ -724,7 +971,6 @@ end
 --   the key hints (Block, Attack, Special Attack...), for players who know their keys.
 -- Pure: the hideable pieces: { widget class, piece name, setting }. Unit-tested via M.hideable.
 M.HIDEABLE = {
-    { cls = "WBP_SurvivalCore_Upkeep_C", name = "UpkeepBuffDivider", setting = "hideUpkeepDivider" },
     { cls = "WBP_InputLegend_World_C", name = "GameInputs", setting = "hideKeyHints" },
 }
 function M.hideable(cls)
@@ -750,19 +996,19 @@ local function tidyUpkeep(uw)
     end
 end
 
--- Durability bars (under items): coloured by how worn the item is, in bands: green above 75%, yellow above 50%,
--- orange above 25%, red at 25% and below. They're plain progress bars, so the fill colour is simply set; the game's
--- own colour is remembered and put back when the option is switched off.
-M.DURABILITY_BANDS = { -- { above this fraction, colour }, highest first
+-- Durability bars (under items): colored by how worn the item is, in bands: green above 75%, yellow above 50%,
+-- orange above 25%, red at 25% and below. They're plain progress bars, so the fill color is simply set; the game's
+-- own color is remembered and put back when the option is switched off.
+M.DURABILITY_BANDS = { -- { above this fraction, color }, highest first
     { 0.75, { 0.10, 0.70, 0.15 } }, -- green: 76-100%
     { 0.50, { 0.95, 0.80, 0.05 } }, -- yellow: 51-75%
     { 0.25, { 1.00, 0.40, 0.02 } }, -- orange: 26-50%
     { -1, { 0.85, 0.05, 0.04 } },   -- red: 0-25%
 }
 
--- Pure: the colour for a durability fraction (0..1), as { R, G, B, A }. Percent is rounded first, so 75.4% is 75%
+-- Pure: the color for a durability fraction (0..1), as { R, G, B, A }. Percent is rounded first, so 75.4% is 75%
 -- (yellow). Unit-tested.
-function M.durabilityColour(p)
+function M.durabilityColor(p)
     local pct = math.floor(math.max(0, math.min(1, p or 0)) * 100 + 0.5) / 100
     for _, b in ipairs(M.DURABILITY_BANDS) do
         if pct > b[1] then local c = b[2] return { R = c[1], G = c[2], B = c[3], A = 1 } end
@@ -771,7 +1017,7 @@ function M.durabilityColour(p)
     return { R = c[1], G = c[2], B = c[3], A = 1 }
 end
 
-local gameFill -- the game's own durability colour (to restore)
+local gameFill -- the game's own durability color (to restore)
 local warnedDurability, durabilityChecked, lastSet = false, false, nil
 
 local function durabilityBars(fn)
@@ -783,7 +1029,7 @@ local function durabilityBars(fn)
                     local okF, err = pcall(fn, w)
                     if not okF and not warnedDurability then
                         warnedDurability = true
-                        log.warn("bars: durability colour failed: %s", tostring(err))
+                        log.warn("bars: durability color failed: %s", tostring(err))
                     end
                     return false
                 end
@@ -794,23 +1040,23 @@ local function durabilityBars(fn)
 end
 
 local durabilityWasOn = false
-local function colourDurability()
-    local onNow = ctx.enabled and ctx.settings.bars.durabilityColours == true
+local function colorDurability()
+    local onNow = ctx.enabled and ctx.settings.bars.durabilityColors == true
     if onNow then
         durabilityBars(function(pb)
             if not gameFill then
                 local c = pb.FillColorAndOpacity
                 gameFill = { R = c.R, G = c.G, B = c.B, A = c.A }
             end
-            -- once: does the colour we set last until the next pass, or does the game put its own back?
+            -- once: does the color we set last until the next pass, or does the game put its own back?
             if lastSet and not durabilityChecked then
                 durabilityChecked = true
                 local c = pb.FillColorAndOpacity
                 local same = math.abs(c.R - lastSet.R) + math.abs(c.G - lastSet.G) + math.abs(c.B - lastSet.B) < 0.01
-                log.info("bars: durability colours %s (bar at %d%%, %d bars)", same and "hold" or
+                log.info("bars: durability colors %s (bar at %d%%, %d bars)", same and "hold" or
                     "are reset by the game", math.floor(pb.Percent * 100 + 0.5), #(FindAllOf("WBP_Inventory_DurabilityBar_C") or {}))
             end
-            local col = M.durabilityColour(pb.Percent)
+            local col = M.durabilityColor(pb.Percent)
             pb:SetFillColorAndOpacity(col)
             lastSet = col
         end)
@@ -822,7 +1068,47 @@ end
 
 -- (ProgressBar.GetPercent is a C++-only getter in UE 5.x, so read the Percent property directly.)
 
--- Every bar on screen now (fresh handles from a scan): after a style change or the master switch.
+-- Every bar on screen now (fresh handles from a scan): after a style change.
+styleBar = function(b, r) return style(b, r) end
+
+-- The box round the three bars as drawn, from each one's own container (its body and point): the stacked survival
+-- gauges sit just right of the points, not of the bars' wider panel. { left, top, right, bottom } or nil.
+function M.barsRect()
+    local box
+    for _, cls in ipairs(BAR_ORDER) do
+        for _, b in pairs(FindAllOf(cls) or {}) do
+            if W.valid(b) and W.isInstance(b) and W.isVisible(b) then
+                local _, _, _, _, holder = parts(b)
+                local r = measure.rect(holder or b)
+                if r then
+                    box = box and { left = math.min(box.left, r.left), top = math.min(box.top, r.top),
+                        right = math.max(box.right, r.right), bottom = math.max(box.bottom, r.bottom) } or r
+                end
+                break
+            end
+        end
+    end
+    return box
+end
+
+-- Each bar's own container (body and point) where the game lays it out, before anyone's offsets on the bar itself:
+-- moving a bar in the editor doesn't move these. { rect, ... } in bar order (stamina, health, special), or nil.
+function M.barsNatural()
+    local out = {}
+    for _, cls in ipairs(BAR_ORDER) do
+        for _, b in pairs(FindAllOf(cls) or {}) do
+            if W.valid(b) and W.isInstance(b) and W.isVisible(b) then
+                local _, _, _, _, holder = parts(b)
+                local T = measure.transform(W.parent(b))
+                local L = measure.layoutRect(holder or b)
+                if T and L then out[#out + 1] = measure.apply(T, L) end
+                break
+            end
+        end
+    end
+    return #out > 0 and out or nil
+end
+
 function M.refresh()
     local n = 0
     for _, uw in pairs(FindAllOf("UserWidget") or {}) do
@@ -841,24 +1127,28 @@ function M.setStyle(s)
     M.refresh()
 end
 
-function M.setEnabled() M.refresh() end
 
 function M.init(c)
     ctx, W, log = c, c.widgets, c.log
     c.events.on("userwidget", function(uw)
-        if not (on() or badgesOn() or taperOn() or ctx.settings.bars.hideUpkeepDivider or ctx.settings.bars.hideKeyHints) then return end
+        if not (on() or badgesOn() or taperOn() or ctx.settings.bars.hideKeyHints) then return end
         local ok, cls = pcall(W.className, uw)
         if ok and M.isBarClass(cls) then style(uw) end
         if ok and M.isUpkeepClass(cls) then pcall(tidyUpkeep, uw) end
     end)
     c.events.on("themechanged", function() if on() then M.refresh() end end)
     c.sched.every(1000, "bars.durability", function()
-        local ok, err = pcall(colourDurability)
+        local ok, err = pcall(colorDurability)
         if not ok then log.debug("bars: durability: %s", tostring(err)) end
     end)
     c.sched.every(200, "bars.caps", function()
         local ok, err = pcall(updateCaps)
         if not ok then log.debug("bars: caps: %s", tostring(err)) end
+        pcall(hideRateLabels)
+        local okP, errP = pcall(percentLabels)
+        if not okP then log.debug("bars: percent: %s", tostring(errP)) end
+        local okR, errR = pcall(evenRows)
+        if not okR then log.debug("bars: rows: %s", tostring(errR)) end
     end)
 end
 

@@ -1,4 +1,4 @@
--- Deterministic Lua-table serialisation (sorted keys, stable diffs) and sandboxed loading.
+-- Deterministic Lua-table serialization (sorted keys, stable diffs) and sandboxed loading.
 -- Data files look like:  return { x = 1, ["WBP_HUD/Bar"] = { ... } }
 local M = {}
 
