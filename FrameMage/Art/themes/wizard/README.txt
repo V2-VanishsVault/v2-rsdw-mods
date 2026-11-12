@@ -1,5 +1,6 @@
-Wizard theme (not made yet).
+Wizard theme (the magic class): black volcanic glass and arcane blue light - faceted obsidian frames with a glowing
+blue channel and a laser-etched rune in each corner (Ansuz, Kenaz, Algiz, Dagaz).
 
-Anything missing here comes from ../demihuman, so this theme currently looks like Demi-human.
-Add files with the same names as Demi-human's to change them: <TextureName>.png, materials.lua, ui/*.png and
-theme.lua (only the values you change).
+Made by: python tools/make_theme.py wizard (tools/make_wizard.py for the small pieces; tools/make_wizard_art.py fits
+the painted frame and crest from tools/wizard_src/ to the game).
+Anything missing here (the stones, the progress-bar art) comes from ../elven.

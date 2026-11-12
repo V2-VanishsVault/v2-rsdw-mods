@@ -98,7 +98,7 @@ function M.timeline(t, o)
     return out
 end
 
--- The celebration's colors in the active theme (its `celebrate` table), each missing one Demi-human's gold.
+-- The celebration's colors in the active theme (its `celebrate` table), each missing one Elven's gold.
 -- Colors are { r, g, b }. Pure. Unit-tested.
 M.GOLD = {
     number = { 1, 0.82, 0.36 }, outline = { 0.22, 0.1, 0.02 }, glow = { 1, 0.72, 0.28 },

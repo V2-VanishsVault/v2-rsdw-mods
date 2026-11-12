@@ -1,6 +1,6 @@
 -- Materials: theme animated/shader UI effects by changing their parameters, keeping the animation.
 --
--- Theme file: the theme's materials.lua (Art/themes/<theme>/, else Demi-human's) (format in core/theme.lua). Parameter names per effect are listed in
+-- Theme file: the theme's materials.lua (Art/themes/<theme>/, else Elven's) (format in core/theme.lua). Parameter names per effect are listed in
 -- dumps/materials.txt after a Ctrl+F9 dump.
 --
 -- How it applies:

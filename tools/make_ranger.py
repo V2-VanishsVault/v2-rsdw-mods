@@ -4,8 +4,8 @@ drawing is shared with the other class themes (tools/inlay.py).
 
     python tools/make_theme.py ranger
 
-Makes the same pieces as Demi-human under the same names (anything not made here - the stones, the progress-bar
-overlays - comes from Demi-human, so the player's stone choice carries over):
+Makes the same pieces as Elven under the same names (anything not made here - the stones, the progress-bar
+overlays - comes from Elven, so the player's stone choice carries over):
   panel_frame.png     9-slice: the wooden band with its green inlay, rounded corners; in each corner a carved plate
                       where the inlay frills out into two curling scrolls, and a leaf
   panel_flourish.png  a carved wooden crest on the top line, green inlay scrolls in it and a leaf rising from it
@@ -15,7 +15,7 @@ overlays - comes from Demi-human, so the player's stone choice carries over):
   tip_band.png        tooltip band: dark glass between wooden strips that round off at both ends
   title_line.png      title bars / buttons / text boxes: dark glass in a narrow wooden border
   keycap.png          rounded keycap in the wooden border
-Same sizes and 9-slice margins as Demi-human, so theme.lua only changes colors.
+Same sizes and 9-slice margins as Elven, so theme.lua only changes colors.
 """
 import math
 
@@ -515,7 +515,7 @@ def selected_plate():
         c = mix(c, (0.06, 0.035, 0.02), 0.55 * math.exp(-e / 2.0) + 0.15 * math.exp(-e / 6.0))
         lit = inlay.facing(sd, x, y)
         c = mix(c, (0.80, 0.64, 0.44), 0.35 * max(0.0, lit) * math.exp(-((e - 1.4) / 0.7) ** 2))
-        # Demi-human's build: a raised rim, a groove cut 8px in, the face sunk under it
+        # Elven's build: a raised rim, a groove cut 8px in, the face sunk under it
         gsd = lambda px, py: sd_round_rect(px, py, WD / 2, H / 2, WD / 2 - 9, H / 2 - 9, 5)
         g = gsd(x, y)
         c = inlay.framed_plate(c, d, g, lit, inlay.facing(gsd, x, y),
@@ -547,7 +547,7 @@ def ornament():
 
 
 def tip_band():
-    """256x128 (drawn 128x64), 9-slice like Demi-human's: no sides - dark translucent glass that fades out toward
+    """256x128 (drawn 128x64), 9-slice like Elven's: no sides - dark translucent glass that fades out toward
     both ends, edged top and bottom by a strip of oak with the green inlay. Nothing changes down its height, so a tall tooltip
     stretches nothing but plain glass."""
     W, H = 256, 128
@@ -583,7 +583,6 @@ def keycap():
 
 
 PIECES = (
-    ("panel_frame.png", panel_frame), ("panel_flourish.png", panel_flourish),
     ("check_mark.png", check_mark), ("tip_band.png", tip_band),
     ("button_rim.png", lambda: button_rim()), ("button_rim_on.png", lambda: button_rim(True)),
     ("check_box.png", lambda: check_box()), ("check_box_hover.png", lambda: check_box(bright=True)),
@@ -592,8 +591,8 @@ PIECES = (
 ) + vitals_art.pieces(inlay.OAK, LINE, vitals_art.wood_edge)
 
 THEME_LUA = """-- Ranger theme (the ranged class): of the woods - rounded corners, every border grained wood with a green inlay,
--- leaves for ornament. Colors are linear RGB (0..1). Only what differs from Demi-human is here; everything else
--- (sizes, the stones) comes from it. The art in ui/ is made by tools/make_theme.py ranger, at Demi-human's sizes.
+-- leaves for ornament. Colors are linear RGB (0..1). Only what differs from Elven is here; everything else
+-- (sizes, the stones) comes from it. The art in ui/ is made by tools/make_theme.py ranger, at Elven's sizes.
 return {
     gold = { 0.22, 0.58, 0.18 },          -- highlights (the selected row in lists): ranger green
     ink = { 0.80, 1.0, 0.64 },            -- lettering on title bars, drag bars and buttons: leaf light
@@ -601,6 +600,7 @@ return {
     label = { 0.90, 0.88, 0.82 },
     dim = { 0.60, 0.58, 0.50 },
     panelColor = { 0.07, 0.07, 0.05, 0.94 },
+    background = "panel_bg_oak.png",    -- the panels' background when it's the theme's own (settings: stone)
     selectedInk = { 0.98, 0.93, 0.82 },     -- lettering on a selected (grouped) title bar: light on the oak
     -- the level-up celebration: a green number (two tones: fill and outline) on a pulsing green glow, sparks to match
     celebrate = {
@@ -608,18 +608,19 @@ return {
         title = { 0.92, 0.98, 0.84 }, label = { 0.76, 0.96, 0.60 },
         sparks = { { 0.58, 0.94, 0.36 }, { 0.96, 0.86, 0.42 }, { 0.30, 0.72, 0.26 }, { 0.92, 1, 0.82 }, { 0.78, 0.56, 0.30 } },
     },
-    -- the wide border: 512px art drawn at 256 units, wrapping round each window - from its edge (frameToEdge) out
-    -- 10 units more (frameOutset), so the band's inner edge sits about where Demi-human's line does and never
-    -- covers a window's contents - its corners 48 units and its edges tiled, not stretched (frameDraw "border")
+    -- the frame: painted (tools/painted_art.py over an exact template), 512px art drawn at 256 units; a thick band
+    -- (48px of art) wrapping round each window from its edge out 20 units more (frameOutset), smaller plates over its
+    -- corners, its sides tiled (frameDraw "border"). frameLine is where its inlay runs in game: the painting puts it
+    -- 24px in, and the frame draws at about 0.78 units per art pixel (measured for the Wizard)
     frameSize = 256,
     frameMargin = 0.1875,
-    frameLine = 9,
+    frameLine = 18.8,
     frameToEdge = true,
-    frameOutset = 10,
+    frameOutset = 20,
     frameDraw = "border",
-    panelPad = { 40, 36, 40, 36 },         -- Frame Mage's own panels: their contents clear the band and corners
-    framePadExtra = 26,                    -- (and panels with their own inset get this much more)
-    flourishSize = { 128, 64 },            -- the flourish at twice Demi-human's size, to match
+    panelPad = { 56, 52, 56, 52 },         -- Frame Mage's own panels: their contents clear the band and the plates
+    framePadExtra = 30,                    -- (and panels with their own inset get this much more)
+    flourishSize = { 128, 64 },            -- the flourish at twice Elven's size, to match
     flourishLine = 46,
     tipFlourishScale = 0.5,                -- tooltips keep a small one
 }

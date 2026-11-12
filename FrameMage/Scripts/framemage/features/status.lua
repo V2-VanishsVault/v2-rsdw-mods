@@ -181,8 +181,8 @@ local stoneOn = {} -- fullName of the background image -> the disc file it has
 local function stoneDisc(bgImg, size)
     local art = ctx.features.art
     local style = require("framemage.editor.style")
-    local file = style.stoneFile(ctx.settings.stone):gsub("%.png$", "_disc.png")
-    local path = ctx.themes.find("ui/" .. file) or ctx.themes.find("ui/panel_stone_disc.png")
+    local file = style.stoneFile(ctx.settings.stone, ctx.themes.style()):gsub("%.png$", "_disc.png")
+    local path = ctx.themes.find("ui/" .. file) or ctx.themes.find("ui/" .. style.FALLBACK:gsub("%.png$", "_disc.png"))
     local full = W.fullName(bgImg)
     if not path or stoneOn[full] == path then return end
     local tex = art and art.loadFile(path, bgImg)
@@ -232,7 +232,7 @@ end
 
 -- The inventory's weight bar in the theme: its trough framed by the theme's rim (ui/weight_trough.png as the bar's
 -- background, ui/weight_fill.png as its fill: clear over the rim, so the fill sits inside it) and its icon on the
--- theme's material (ui/weight_icon.png, the theme's own only: Demi-human keeps the game's icon).
+-- theme's material (ui/weight_icon.png, the theme's own only: Elven keeps the game's icon).
 local weightThemed = {} -- fullName of the weight bar -> theme it was styled in
 local weightFrames = {} -- fullName of our frame round a weight bar -> { frame, icon (its row's icon, to follow) }
 local gameWeightIcon -- the game's icon texture (to put back)

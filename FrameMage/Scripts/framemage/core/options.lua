@@ -18,15 +18,16 @@ M.TABS = {
 M.SCHEMA = {
     -- Look
     { tab = "look", key = "Theme", type = "choice", label = "Theme", setting = "theme",
-        options = { "demihuman", "warrior", "ranger", "wizard" },
-        labels = { demihuman = "Demi-human", warrior = "Warrior", ranger = "Ranger", wizard = "Wizard (soon)" },
-        -- the game's own combat-style icons, before the name
-        icons = { warrior = "T_Icon_Tag_Skill_Attack", wizard = "T_Icon_Tag_Skill_Magic", ranger = "T_Icon_Tag_Skill_Ranged" },
+        options = { "dwarven", "elven", "ranger", "warrior", "wizard" }, -- (alphabetical)
+        labels = { elven = "Elven", warrior = "Warrior", ranger = "Ranger", wizard = "Wizard", dwarven = "Dwarven" },
+        -- the game's own skill icons, before the name
+        icons = { warrior = "T_Icon_Tag_Skill_Attack", wizard = "T_Icon_Tag_Skill_Magic", ranger = "T_Icon_Tag_Skill_Ranged",
+            dwarven = "T_Icon_Tag_Skill_Mining", elven = "T_Icon_Tag_Skill_Herblore" },
         tooltip = "The look of reskinned game art and of Frame Mage's own panels." },
-    { tab = "look", key = "Stone", type = "choice", label = "Panel stone", setting = "stone",
-        options = { "moonstone", "slate", "marble" },
-        labels = { moonstone = "Moonstone", slate = "Slate", marble = "Black marble" },
-        tooltip = "The stone behind Frame Mage's own panels." },
+    { tab = "look", key = "Stone", type = "choice", label = "Panel background", setting = "stone",
+        options = require("framemage.editor.style").STONES,
+        labels = require("framemage.editor.style").STONE_LABELS,
+        tooltip = "What fills Frame Mage's panels and the windows it restyles. Theme's own: each theme's painting." },
     { tab = "look", key = "Profile", type = "choice", label = "Layout", setting = "profile",
         options = { "default", "combat", "minimal" },
         labels = { default = "Default", combat = "Combat", minimal = "Minimal" },

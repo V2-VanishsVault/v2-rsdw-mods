@@ -52,7 +52,7 @@ def main():
     for theme in sorted(os.listdir(ROOT)):
         ui = os.path.join(ROOT, theme, "ui")
         track = os.path.join(ui, "bar_track_body.png")
-        if os.path.exists(track):  # (a theme without its own track uses Demi-human's ends for it)
+        if os.path.exists(track):  # (a theme without its own track uses Elven's ends for it)
             tcol = column(Image.open(track))
             strip(tcol).save(os.path.join(ui, "bar_end_track.png"))
             strip([(255, 255, 255, 255 if p[3] > 0 else 0) for p in tcol]).save(os.path.join(ui, "bar_end_cap.png"))

@@ -4,8 +4,8 @@ warriors). The metal-and-inlay drawing is shared with the other class themes (to
 
     python tools/make_theme.py warrior
 
-Makes the same pieces as Demi-human under the same names (anything not made here - the stones, the progress-bar
-overlays - comes from Demi-human, so the player's stone choice carries over):
+Makes the same pieces as Elven under the same names (anything not made here - the stones, the progress-bar
+overlays - comes from Elven, so the player's stone choice carries over):
   panel_frame.png     9-slice: the steel band with its red inlay, cut across every corner; in each corner a steel
                       diamond stud set with a red gem and a short spike pointing into the panel
   panel_flourish.png  a steel spearhead standing on the panel's top line (red inlay up its spine, a red gem in its
@@ -16,7 +16,7 @@ overlays - comes from Demi-human, so the player's stone choice carries over):
   tip_band.png        tooltip band: dark glass between steel strips, the ends cut to a point
   title_line.png      title bars / buttons / text boxes: dark glass in a narrow steel border
   keycap.png          cut-corner keycap in the steel border
-Same sizes and 9-slice margins as Demi-human, so theme.lua only changes colors.
+Same sizes and 9-slice margins as Elven, so theme.lua only changes colors.
 """
 import math
 
@@ -290,7 +290,7 @@ def selected_plate():
             t = y / H
             c = mix(c, (1.0, 1.0, 1.0), 0.35 * math.exp(-((t - 0.32) / 0.12) ** 2))
             c = mix(c, (0.05, 0.05, 0.06), 0.25 * clamp01((t - 0.6) / 0.4))
-            # Demi-human's build: a raised rim, an engraved groove 8px in, the face sunk under it
+            # Elven's build: a raised rim, an engraved groove 8px in, the face sunk under it
             g = sd_cut_box(x, y, WD / 2, H / 2, WD / 2 - 9, H / 2 - 9, 3)
             gsd = lambda px, py: sd_cut_box(px, py, WD / 2, H / 2, WD / 2 - 9, H / 2 - 9, 3)
             c = inlay.framed_plate(c, d, g, inlay.facing(sd, x, y), inlay.facing(gsd, x, y),
@@ -322,7 +322,7 @@ def ornament():
 
 
 def tip_band():
-    """256x128 (drawn 128x64), 9-slice like Demi-human's: no sides - dark translucent glass that fades out toward
+    """256x128 (drawn 128x64), 9-slice like Elven's: no sides - dark translucent glass that fades out toward
     both ends, edged top and bottom by a strip of polished steel with the red inlay. Nothing changes down its height, so a tall tooltip
     stretches nothing but plain glass."""
     W, H = 256, 128
@@ -358,7 +358,6 @@ def keycap():
 
 
 PIECES = (
-    ("panel_frame.png", panel_frame), ("panel_flourish.png", panel_flourish),
     ("check_mark.png", check_mark), ("tip_band.png", tip_band),
     ("button_rim.png", lambda: button_rim()), ("button_rim_on.png", lambda: button_rim(True)),
     ("check_box.png", lambda: check_box()), ("check_box_hover.png", lambda: check_box(bright=True)),
@@ -367,8 +366,8 @@ PIECES = (
 ) + vitals_art.pieces(MAT, LINE, vitals_art.steel_edge)
 
 THEME_LUA = """-- Warrior theme (the melee class): sharp, angular, forged - cut corners, every border polished steel with a red
--- inlay. Colors are linear RGB (0..1). Only what differs from Demi-human is here; everything else (sizes, the
--- stones) comes from it. The art in ui/ is made by tools/make_theme.py warrior, at Demi-human's sizes and margins.
+-- inlay. Colors are linear RGB (0..1). Only what differs from Elven is here; everything else (sizes, the
+-- stones) comes from it. The art in ui/ is made by tools/make_theme.py warrior, at Elven's sizes and margins.
 return {
     gold = { 0.78, 0.12, 0.08 },          -- highlights (the selected row in lists): warrior red
     ink = { 1.0, 0.62, 0.50 },            -- lettering on title bars, drag bars and buttons: ember light
@@ -376,6 +375,7 @@ return {
     label = { 0.88, 0.86, 0.86 },
     dim = { 0.60, 0.56, 0.56 },
     panelColor = { 0.08, 0.06, 0.06, 0.94 },
+    background = "panel_bg_leather.png",    -- the panels' background when it's the theme's own (settings: stone)
     selectedInk = { 0.06, 0.06, 0.07 },     -- lettering on a selected (grouped) title bar: dark on the steel
     -- the level-up celebration: a red number (two tones: fill and outline) on a pulsing red glow, sparks to match
     celebrate = {
@@ -383,18 +383,19 @@ return {
         title = { 1.00, 0.88, 0.85 }, label = { 1.00, 0.62, 0.55 },
         sparks = { { 1, 0.25, 0.15 }, { 1, 0.55, 0.20 }, { 0.92, 0.92, 0.96 }, { 0.75, 0.05, 0.05 }, { 1, 0.80, 0.60 } },
     },
-    -- the wide border: 512px art drawn at 256 units, wrapping round each window - from its edge (frameToEdge) out
-    -- 10 units more (frameOutset), so the band's inner edge sits about where Demi-human's line does and never
-    -- covers a window's contents - its corners 48 units and its edges tiled, not stretched (frameDraw "border")
+    -- the frame: painted (tools/painted_art.py over an exact template), 512px art drawn at 256 units; a thick band
+    -- (48px of art) wrapping round each window from its edge out 20 units more (frameOutset), smaller plates over its
+    -- corners, its sides tiled (frameDraw "border"). frameLine is where its inlay runs in game: the painting puts it
+    -- 27px in, and the frame draws at about 0.78 units per art pixel (measured for the Wizard)
     frameSize = 256,
     frameMargin = 0.1875,
-    frameLine = 9,
+    frameLine = 21.1,
     frameToEdge = true,
-    frameOutset = 10,
+    frameOutset = 20,
     frameDraw = "border",
-    panelPad = { 40, 36, 40, 36 },         -- Frame Mage's own panels: their contents clear the band and corners
-    framePadExtra = 26,                    -- (and panels with their own inset get this much more)
-    flourishSize = { 128, 64 },            -- the flourish at twice Demi-human's size, to match
+    panelPad = { 56, 52, 56, 52 },         -- Frame Mage's own panels: their contents clear the band and the plates
+    framePadExtra = 30,                    -- (and panels with their own inset get this much more)
+    flourishSize = { 128, 64 },            -- the flourish at twice Elven's size, to match
     flourishLine = 46,
     tipFlourishScale = 0.5,                -- tooltips keep a small one
 }

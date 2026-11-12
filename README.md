@@ -96,8 +96,8 @@ Frame Mage has four high-fantasy themes, picked in Settings (**Look > Theme**) o
 
 | Theme | Look | Status |
 |---|---|---|
-| `demihuman` (default, "Demi-human") | moonstone and wispy gold light: High Elf meets Dwarven | Frame Mage's own panels done; game art in progress |
-| `warrior` | | coming soon (uses Demi-human's art meanwhile) |
+| `elven` (default, "Elven") | moonstone and wispy gold light: High Elf meets Dwarven | Frame Mage's own panels done; game art in progress |
+| `warrior` | | coming soon (uses Elven's art meanwhile) |
 | `ranger` | | coming soon |
 | `wizard` | | coming soon |
 
@@ -105,10 +105,10 @@ A theme is a folder, `Art/themes/<theme>/`:
 
 - **`<TextureName>.png`** replaces that game texture everywhere.
 - **`materials.lua`** re-colors animated effects (see below).
-- **`ui/`** holds Frame Mage's own panels, title bars and keycaps (`python tools/make_theme.py` makes Demi-human's).
+- **`ui/`** holds Frame Mage's own panels, title bars and keycaps (`python tools/make_theme.py` makes Elven's).
 - **`theme.lua`** sets colors and sizes for Frame Mage's own panels.
 
-Anything a theme doesn't have comes from `demihuman`, so a new theme can start empty.
+Anything a theme doesn't have comes from `elven`, so a new theme can start empty.
 
 ## Reskinning game art
 
@@ -127,7 +127,7 @@ their parameters instead and the fills and animation keep working:
 
 1. Press **Ctrl+F9** with the effect on screen. `dumps/materials.txt` lists every effect, its parameters and their
    current values, as ready-to-copy entries.
-2. Copy `Art/themes/demihuman/materials.example.lua` to your theme's `materials.lua`, paste in the entries you want, and edit the values.
+2. Copy `Art/themes/elven/materials.example.lua` to your theme's `materials.lua`, paste in the entries you want, and edit the values.
    Colors can be `"#RRGGBB"`, which is treated as sRGB like a color picker.
 3. Press **Ctrl+F10**. Add `force = true` for parameters the game animates itself.
 

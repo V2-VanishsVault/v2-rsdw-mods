@@ -6,3 +6,4 @@ FrameMage/config/settings.lua
 *.tmp
 *.bad
 __pycache__/
+luac.out

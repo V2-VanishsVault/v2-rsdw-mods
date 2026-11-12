@@ -1,6 +1,6 @@
 """Round stone discs for the menu shortcuts' circles (Pillow).
 
-From each stone tile (panel_stone*.png) a 128 px disc: the stone, softly edged, a little darker toward its rim so
+From each background tile (panel_stone*.png, panel_bg_*.png) a 128 px disc: the stone, softly edged, a little darker toward its rim so
 the theme's rim sits on it as on a recessed face. Written beside the tile as <tile>_disc.png.
 
 Run: python tools/make_stone_discs.py
@@ -39,7 +39,7 @@ def main():
         if not os.path.isdir(ui):
             continue
         for f in sorted(os.listdir(ui)):
-            if f.startswith("panel_stone") and f.endswith(".png") and not f.endswith("_disc.png"):
+            if f.startswith(("panel_stone", "panel_bg_")) and f.endswith(".png") and not f.endswith("_disc.png"):
                 disc(Image.open(os.path.join(ui, f))).save(os.path.join(ui, f[:-4] + "_disc.png"))
                 print("disc:", theme, f)
 

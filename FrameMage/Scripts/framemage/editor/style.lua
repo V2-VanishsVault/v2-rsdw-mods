@@ -8,13 +8,32 @@ local themes = require("framemage.core.themes")
 
 local M = {}
 
--- The stones players can pick for the panels (settings.stone), and their tile in the theme's ui/ folder.
-M.STONES = { "moonstone", "slate", "marble" }
-M.STONE_LABELS = { moonstone = "Moonstone", slate = "Slate", marble = "Black marble" }
-local STONE_FILES = { moonstone = "panel_stone.png", slate = "panel_stone_slate.png", marble = "panel_stone_marble.png" }
+-- The backgrounds players can pick for the panels (settings.stone): the theme's own (its theme.lua `background`),
+-- then paintings (tools/make_backgrounds.py), each panel_bg_<name>.png in the theme's ui/ folder (Elven's has them all).
+M.STONES = { "theme", "silk", "forge", "leather", "oak", "starfield", "slate", "dragonscale", "parchment", "mists",
+    "embers", "abyss", "aurora" }
+M.STONE_LABELS = { theme = "Theme's own", silk = "Moonlit silk", forge = "Forge iron", leather = "Battle leather",
+    oak = "Weathered oak", starfield = "Starfield", slate = "Slate", dragonscale = "Dragon scale",
+    parchment = "Old parchment", mists = "Dark mists", embers = "Ember ash", abyss = "Abyss", aurora = "Aurora" }
+-- Used when nothing else is found (a theme with no `background` of its own, a picture missing)
+M.FALLBACK = "panel_bg_slate.png"
 
--- Pure: the tile file for a stone name (unknown names get the theme's default stone). Unit-tested.
-function M.stoneFile(name) return STONE_FILES[name] or "panel_stone.png" end
+-- Pure: the tile file for a background name; "theme" = the theme's own (`background` in its style); a painting's is
+-- panel_bg_<name>.png; anything else (a background since removed: moonstone, marble, tapestry, glacier) the theme's
+-- own too. Unit-tested.
+function M.stoneFile(name, st)
+    for _, n in ipairs(M.STONES) do
+        if n == name and n ~= "theme" then return "panel_bg_" .. name .. ".png" end
+    end
+    return (st and st.background) or M.FALLBACK
+end
+
+-- Pure: the drawn size of a background's tile (UI units): a painting's twice a stone's (its 512 px picture shows its
+-- detail at the stones' sharpness, and repeats less often). Unit-tested.
+function M.stoneTile(file, panelTile)
+    if file and file:sub(1, 9) == "panel_bg_" then return panelTile * 2 end
+    return panelTile
+end
 
 local ctx
 
@@ -25,6 +44,15 @@ local function load(file, worldContext)
     local path = themes.find("ui/" .. file)
     if not (art and path) then return nil end
     return art.loadFile(path, worldContext)
+end
+
+-- The chosen background's tile (falling back to slate) and its drawn size.
+local function backgroundTile(worldContext)
+    local s = themes.style()
+    local file = M.stoneFile(ctx and ctx.settings.stone, s)
+    local tex = load(file, worldContext)
+    if not tex then file = M.FALLBACK; tex = load(file, worldContext) end
+    return tex, M.stoneTile(file, s.panelTile)
 end
 
 local WHITE = { SpecifiedColor = { R = 1, G = 1, B = 1, A = 1 }, ColorUseRule = 0 }
@@ -52,7 +80,7 @@ local function setBrush(widget, spec)
     return pcall(go)
 end
 
--- The theme's title bar behind `border`'s content (title bars, drag bars, buttons): Demi-human's is a hairline of
+-- The theme's title bar behind `border`'s content (title bars, drag bars, buttons): Elven's is a hairline of
 -- light round faint dark glass (theme.lua titleArt); older themes can use the solid gold plate. true if art was used.
 function M.titlePlate(border, worldContext)
     local s = themes.style()
@@ -76,12 +104,12 @@ function M.plateMargin(titleMargin)
 end
 
 function M.goldPlate(border, worldContext)
-    -- the theme's plate for a selected title bar (ui/plate_selected.png: Demi-human gold, Warrior polished steel,
+    -- the theme's plate for a selected title bar (ui/plate_selected.png: Elven gold, Warrior polished steel,
     -- Ranger oak), sliced like the title bars; a gold color if there's no art
     local s = themes.style()
     local tex = load("plate_selected.png", worldContext) or load("title_plate.png", worldContext)
     pcall(function() border:SetBrushColor({ R = 1, G = 1, B = 1, A = 1 }) end)
-    -- sliced with no stretchy band down the sides: the ornaments at each end (Demi-human's diamonds, Warrior's
+    -- sliced with no stretchy band down the sides: the ornaments at each end (Elven's diamonds, Warrior's
     -- rivets, Ranger's pegs) sit half way down, and on a button shorter than the plate that band was squeezed to
     -- nothing and took them with it
     local m = M.plateMargin(s.titleMargin)
@@ -154,10 +182,10 @@ function M.panel(new, content, worldContext, pad)
     local s = themes.style()
     pad = M.panelPadding(pad, s)
     local stack = new("Overlay")
-    local stone = load(M.stoneFile(ctx and ctx.settings.stone), worldContext) or load("panel_stone.png", worldContext)
+    local stone, tile = backgroundTile(worldContext)
     local frame = load("panel_frame.png", worldContext)
     local fill = new("Image")
-    local tiled = stone and setBrush(fill, M.brushSpec(stone, "tile", s.panelTile, s.panelTile))
+    local tiled = stone and setBrush(fill, M.brushSpec(stone, "tile", tile, tile))
     if not tiled then
         pcall(function()
             local c = s.panelColor
@@ -188,7 +216,7 @@ function M.flourishTop(s)
     return M.frameLine(s) - (s.flourishLine or 23)
 end
 
--- Pure: how far in from the frame art's edge its line runs (UI units): the theme's frameLine, or Demi-human's
+-- Pure: how far in from the frame art's edge its line runs (UI units): the theme's frameLine, or Elven's
 -- hairline 7 of its 128 pixels in. Unit-tested.
 function M.frameLine(s)
     return s.frameLine or (s.frameSize or 64) * 7 / 128
@@ -207,9 +235,11 @@ end
 -- The theme's ornament for a panel's top line, as an Image drawn at its own size (nil if the theme has none).
 -- Place it centered at the top of the panel with M.flourishTop as its top padding.
 -- The flourish as a brush, drawn at its own size; nil if the theme has none.
-function M.flourishBrush(worldContext, scale)
+function M.flourishBrush(worldContext, scale, file)
     local s = themes.style()
-    local tex = s.flourishArt and load(s.flourishArt, worldContext)
+    -- (`file`: a flourish of the theme's own for one use - the tooltips' - else its usual one)
+    local tex = file and load(file, worldContext)
+    tex = tex or (s.flourishArt and load(s.flourishArt, worldContext))
     if not tex then return nil end
     local size = s.flourishSize or { 64, 32 }
     scale = scale or 1
@@ -228,9 +258,8 @@ end
 
 -- The panel stone as a brush (tiled), in the player's chosen stone; nil without art.
 function M.stoneBrush(worldContext)
-    local s = themes.style()
-    local stone = load(M.stoneFile(ctx and ctx.settings.stone), worldContext) or load("panel_stone.png", worldContext)
-    return stone and M.brushSpec(stone, "tile", s.panelTile, s.panelTile) or nil
+    local stone, tile = backgroundTile(worldContext)
+    return stone and M.brushSpec(stone, "tile", tile, tile) or nil
 end
 
 -- The panel frame (gold light) as a 9-slice brush; nil without art.

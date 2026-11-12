@@ -1,11 +1,11 @@
 """The vitals' themed pieces for the class themes: the ring behind each bar's icon and the edge round the shaped
-bars (Demi-human's are a gold hairline: tools/make_badges.py, make_theme.bar_outline). Same sizes and layout as
-Demi-human's, so the bars feature uses them unchanged.
+bars (Elven's are a gold hairline: tools/make_badges.py, make_theme.bar_outline). Same sizes and layout as
+Elven's, so the bars feature uses them unchanged.
 
   badge_ring.png       112x112 (drawn bars.ringSize, 38 units): a dark face in a thin plain ring of the theme's
                        material, like its buttons' rims - Warrior polished steel, Ranger oak
   bar_outline.png      128x64 (drawn 64x32): the edge round the whole tapered bar, in the theme's material
-  bar_outline_body.png / bar_tip_outline.png   its body and point, cut from it (as for Demi-human)
+  bar_outline_body.png / bar_tip_outline.png   its body and point, cut from it (as for Elven)
 """
 import math
 
@@ -42,7 +42,7 @@ GAUGE = 136   # the gauge rim's art (drawn the gauge's size: the survival rings 
 
 def gauge_rim(mat):
     """A ring of the theme's material round a gauge's edge (nothing inside: the gauge shows through), lit from the
-    top left, as thick as the vitals' icon rings look. `mat` = None: Demi-human's band of gold light."""
+    top left, as thick as the vitals' icon rings look. `mat` = None: Elven's band of gold light."""
     c = GAUGE / 2
     R, HW = 62.0, 4.8
 
@@ -65,7 +65,7 @@ def gauge_rim(mat):
     return GAUGE, GAUGE, image(GAUGE, GAUGE, fn)
 
 
-def bar_edge(shade):
+def bar_edge(shade, ss=1):
     """The edge round the tapered bar (top, bottom, left end and both slants of the point), just inside its
     outline: shade(d, x, y) -> rgba for a pixel d px from the line's center (the same layout as make_theme's)."""
     body = TAPER_W - TAPER_POINT
@@ -76,6 +76,22 @@ def bar_edge(shade):
         if inside < -2.5 or inside > 8:
             return (0, 0, 0, 0)
         return shade(inside, x, y)
+
+    if ss > 1:
+        # supersampled: each pixel the average of ss x ss samples across it (premultiplied), so fine highlights and
+        # the tip's slanted sides come out smooth, not stair-stepped
+        base = fn
+
+        def fn(x, y):  # noqa: F811
+            r = g = b = a = 0.0
+            for i in range(ss):
+                for j in range(ss):
+                    c = base(x - 0.5 + (i + 0.5) / ss, y - 0.5 + (j + 0.5) / ss)
+                    r, g, b, a = r + c[0] * c[3], g + c[1] * c[3], b + c[2] * c[3], a + c[3]
+            n = ss * ss
+            if a <= 0:
+                return (0.0, 0.0, 0.0, 0.0)
+            return (r / a, g / a, b / a, a / n)
 
     return TAPER_W, TAPER_H, image(TAPER_W, TAPER_H, fn)
 
@@ -109,6 +125,29 @@ def wood_edge():
             col = over(col, (0.07, 0.045, 0.03, 1.0), 0.65)
         return col
     return bar_edge(shade)
+
+
+def obsidian_edge():
+    """The Wizard's: plain polished obsidian along the bar's edge, like its gauge rims - dark glass rounded across its
+    width, a soft silver-blue highlight where it turns to the light (brighter along the top) and a soft shadow
+    falling from it onto the bar. No inlay (small borders stay plain); no hard lines, which flickered into a rough
+    double edge at the size the game draws it. Supersampled, for smooth slants on the point."""
+    import math
+
+    def shade(inside, x, y):
+        col = (0.0, 0.0, 0.0, 0.0)
+        top = y < TAPER_H / 2
+        if inside > 4.6:
+            # the rim's soft shadow on the bar
+            return over(col, (0.0, 0.0, 0.01, 1.0), 0.45 * math.exp(-((inside - 4.6) / 1.4) ** 2))
+        if inside > -0.5:
+            t = clamp01((inside + 0.5) / 5.1)                        # 0 outer edge .. 1 inner edge
+            round_ = math.sin(math.pi * t)                           # the rim's rounded top: lit in the middle
+            c = mix((0.015, 0.02, 0.035), (0.16, 0.18, 0.25), round_)
+            c = mix(c, (0.78, 0.86, 1.0), (0.42 if top else 0.20) * math.exp(-((t - 0.38) / 0.17) ** 2))
+            col = over(col, c + (1.0,), clamp01(inside + 0.5) * clamp01(5.1 - inside))
+        return col
+    return bar_edge(shade, ss=4)
 
 
 def pieces(mat, line, edge):

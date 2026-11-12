@@ -2,8 +2,9 @@
 -- (It replaces the Mod Menu page; the rows come from core/options.lua.)
 --
 --   toggles flip with a click; choices and numbers step with the arrows either side of their value (click the
---   left half for back, the right half for forward); a key row waits for the next key press (Escape cancels);
---   buttons do their thing. The wheel scrolls a long tab; the gold title bar drags the panel.
+--   left half for back, the right half for forward); a choice's value itself opens a drop-down list of every
+--   option (click one to pick it, anywhere else to close it); a key row waits for the next key press (Escape
+--   cancels); buttons do their thing. The wheel scrolls a long tab; the gold title bar drags the panel.
 local overlay = require("framemage.core.overlay")
 local W = require("framemage.core.widgets")
 local geometry = require("framemage.core.geometry")
@@ -21,6 +22,8 @@ local open = false
 local drag
 local capturing -- the row waiting for a key
 local armed -- { row, at }: a confirm button clicked once, waiting for the second click
+local closeDrop -- (defined with the list, below)
+local drop -- the open drop-down list: { row, root, slot, values, entries = { {border, text, value} }, lit }
 local onClose
 
 local ROWS = 12
@@ -174,10 +177,27 @@ local function build()
     end)
     pcall(function() width:SetWidthOverride(panelW) end)
     host = { width = panelW, uw = h.uw, canvas = h.canvas, slot = slot, root = width, plate = plate, tabs = tabs, rows = rows,
-        close = close, up = up, down = down, tip = tip }
+        close = close, up = up, down = down, tip = tip, new = new, text = text }
 end
 
 local function tabRows() return options.rowsOf(tab) end
+
+-- An option's icon (a theme's skill icon) on `img`, or `img` hidden when it has none.
+local function showIcon(img, row, value)
+    local iconName = row.icons and row.icons[value]
+    local art = ctx.features.art
+    local tex = iconName and art and art.gameTexture and art.gameTexture(iconName)
+    if tex then
+        local sz = S.legendLabelSize + 5
+        pcall(function()
+            img:SetBrush({ ResourceObject = tex, ImageSize = { X = sz, Y = sz }, DrawAs = 3, Tiling = 0,
+                TintColor = { SpecifiedColor = { R = 1, G = 1, B = 1, A = 1 }, ColorUseRule = 0 } })
+            img:SetVisibility(3)
+        end)
+    else
+        pcall(function() img:SetVisibility(1) end)
+    end
+end
 
 -- Fill the rows from the current tab and settings.
 local function paint()
@@ -221,20 +241,8 @@ local function paint()
                 shown = (capturing == row) and "Press a key (Esc: cancel)" or tostring(setting(row) or "")
             else shown = options.display(row, setting(row)) end
             r.value:SetText(FText(shown))
-            -- the value's icon (a theme's combat style), if it has one
-            local iconName = row.icons and row.icons[setting(row)]
-            local art = ctx.features.art
-            local tex = iconName and art and art.gameTexture and art.gameTexture(iconName)
-            if tex then
-                local sz = S.legendLabelSize + 5
-                pcall(function()
-                    r.icon:SetBrush({ ResourceObject = tex, ImageSize = { X = sz, Y = sz }, DrawAs = 3, Tiling = 0,
-                        TintColor = { SpecifiedColor = { R = 1, G = 1, B = 1, A = 1 }, ColorUseRule = 0 } })
-                    r.icon:SetVisibility(3)
-                end)
-            else
-                pcall(function() r.icon:SetVisibility(1) end)
-            end
+            -- the value's icon (a theme's skill icon), if it has one
+            showIcon(r.icon, row, setting(row))
         end)
     end
 end
@@ -284,6 +292,7 @@ function M.open()
 end
 
 function M.close()
+    closeDrop()
     if capturing then ctx.keys.cancelCapture(); capturing = nil end
     open = false
     drag = nil
@@ -308,6 +317,98 @@ function M.scroll(by)
     if o ~= offset then offset = o; paint() end
 end
 
+-- The drop-down list --------------------------------------------------------------------------------------------
+
+function closeDrop()
+    if drop and W.valid(drop.root) then pcall(function() drop.root:RemoveFromParent() end) end
+    drop = nil
+end
+
+-- Pure: which entry of a drop-down to light: the hovered one, else the current value's. Unit-tested.
+function M.dropLit(values, current, hovered)
+    if hovered then return hovered end
+    for i, v in ipairs(values) do if v == current then return i end end
+    return nil
+end
+
+-- Paint the list's entries: the lit one filled like a button (its lettering dark), the others plain.
+local function paintDrop(hovered)
+    if not drop then return end
+    local lit = M.dropLit(drop.values, setting(drop.row), hovered)
+    if lit == drop.lit then return end
+    drop.lit = lit
+    for i, e in ipairs(drop.entries) do
+        pcall(function()
+            if i == lit then
+                style.buttonPlate(e.border, host.uw)
+                e.border:SetBrushColor({ R = 1, G = 1, B = 1, A = 1 })
+                e.text:SetColorAndOpacity({ SpecifiedColor = style.selectedInk(), ColorUseRule = 0 })
+            else
+                e.border:SetBrushColor({ R = 0, G = 0, B = 0, A = 0 })
+                e.text:SetColorAndOpacity({ SpecifiedColor = style.label(), ColorUseRule = 0 })
+            end
+        end)
+    end
+end
+
+-- Open the list under a choice row's value: every option, with its icon, on the theme's dark glass.
+local function openDrop(row, r)
+    closeDrop()
+    local box = geometry.rect(r.plate)
+    if not box then return end
+    local new, text = host.new, host.text
+    local width = new("SizeBox")
+    width:SetWidthOverride(math.max(box.right - box.left, 120))
+    local frame = new("Border")
+    local pc = themes.style().panelColor or { 0.03, 0.03, 0.04, 0.94 }
+    frame:SetBrushColor({ R = pc[1], G = pc[2], B = pc[3], A = math.max(pc[4] or 1, 0.96) })
+    frame:SetPadding({ Left = 3, Top = 3, Right = 3, Bottom = 3 })
+    local list = new("VerticalBox")
+    frame:SetContent(list)
+    width:SetContent(frame)
+    local entries = {}
+    for _, value in ipairs(row.options) do
+        local b = new("Border")
+        b:SetPadding({ Left = 8, Top = 3, Right = 8, Bottom = 3 })
+        b:SetBrushColor({ R = 0, G = 0, B = 0, A = 0 })
+        local line = new("HorizontalBox")
+        local icon = new("Image")
+        local is = line:AddChildToHorizontalBox(icon)
+        is:SetVerticalAlignment(2)
+        is:SetPadding({ Left = 0, Top = 0, Right = 4, Bottom = 0 })
+        showIcon(icon, row, value)
+        local t = text(options.display(row, value), S.legendLabelSize, style.label())
+        local ts = line:AddChildToHorizontalBox(t)
+        ts:SetVerticalAlignment(2)
+        b:SetContent(line)
+        local es = list:AddChildToVerticalBox(b)
+        es:SetPadding({ Left = 0, Top = 1, Right = 0, Bottom = 1 })
+        entries[#entries + 1] = { border = b, text = t, value = value }
+    end
+    local slot = host.canvas:AddChildToCanvas(width)
+    slot:SetAutoSize(true)
+    slot:SetAnchors({ Minimum = { X = 0, Y = 0 }, Maximum = { X = 0, Y = 0 } })
+    slot:SetZOrder(100)
+    slot:SetPosition({ X = box.left, Y = box.bottom + 2 })
+    drop = { row = row, root = width, slot = slot, entries = entries, values = row.options }
+    paintDrop()
+end
+
+-- A click while the list is open: an entry picks its value; anywhere else closes the list. Always taken.
+local function clickDrop(x, y)
+    for _, e in ipairs(drop.entries) do
+        if inside(e.border, x, y) then
+            local row = drop.row
+            closeDrop()
+            if e.value ~= setting(row) then options.apply(ctx, row, e.value) end
+            if host and W.valid(host.uw) then paint() end
+            return true
+        end
+    end
+    closeDrop()
+    return true
+end
+
 local function startCapture(row)
     capturing = row
     paint()
@@ -318,8 +419,12 @@ local function startCapture(row)
     end)
 end
 
-local function activate(row, x, r)
+local function activate(row, x, y, r)
     local kind = row.type
+    if kind == "choice" and inside(r.plate, x, y) then
+        openDrop(row, r) -- (the value itself: the list; the arrows either side still step)
+        return
+    end
     if kind == "toggle" then
         options.apply(ctx, row, not setting(row))
     elseif kind == "choice" or kind == "number" or kind == "slider" then
@@ -350,6 +455,7 @@ end
 -- A press: true = the panel took it.
 function M.onDown(x, y)
     if not (open and host and W.valid(host.uw)) then return false end
+    if drop then return clickDrop(x, y) end
     if inside(host.plate, x, y) then
         drag = { x0 = x, y0 = y, px = host.x, py = host.y, moved = false }
         return true
@@ -370,7 +476,7 @@ function M.onDown(x, y)
     for i, r in ipairs(host.rows) do
         local row = list[offset + i]
         if row and inside(r.border, x, y) then
-            activate(row, x, r)
+            activate(row, x, y, r)
             return true
         end
     end
@@ -401,6 +507,7 @@ function M.dragTick(x, y)
 end
 
 function M.onWheel(x, y, delta)
+    if drop then return true end -- (the list stays put under its row)
     if not (open and host and inside(host.root, x, y)) then return false end
     M.scroll(delta > 0 and -2 or 2)
     return true
@@ -411,6 +518,12 @@ local lastTip
 function M.tick()
     if not (open and host and W.valid(host.uw)) then return end
     local x, y = geometry.mouse()
+    -- the open list: the entry under the pointer lit
+    if drop and x then
+        local hovered
+        for i, e in ipairs(drop.entries) do if inside(e.border, x, y) then hovered = i break end end
+        paintDrop(hovered)
+    end
     local tipText = ""
     if x then
         local list = tabRows()
@@ -428,7 +541,7 @@ end
 -- Settings changed elsewhere (a hotkey, the next-layout key): show the new values.
 function M.refresh() if open then paint() end end
 
-function M.forget() host = nil; open = false; drag = nil; capturing = nil end
+function M.forget() host = nil; open = false; drag = nil; capturing = nil; drop = nil end
 
 function M.restyle()
     if host and W.valid(host.uw) then pcall(function() host.uw:RemoveFromParent() end) end

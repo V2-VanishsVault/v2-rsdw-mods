@@ -65,10 +65,9 @@ function M.flash(msg)
     flashSeq = flashSeq + 1
     local mine = flashSeq
     if not active then
-        -- outside the editor (an art reload, a delayed dump, Settings on its own): players don't see these - the
-        -- log has them (the banner shows them only when editor.showBanner is on)
+        -- outside the editor (an art reload, a delayed dump, Settings on its own) the banner is the only thing on
+        -- screen to say it (to be switched off, with the developer keys, for distribution builds); the log has it too
         log.info("%s", tostring(msg))
-        if not S.showBanner then return end
         pcall(banner.set, msg)
         ctx.sched.later(2500, "editor.flashClear", function()
             if flashSeq == mine and not active then pcall(banner.set, "") end

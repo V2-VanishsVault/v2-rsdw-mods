@@ -1,13 +1,9 @@
 """Generates a theme's own panel art (no game art) into FrameMage/Art/themes/<theme>/ui/.
 
-    python tools/make_theme.py            (Demi-human: moonstone and wispy gold light)
+    python tools/make_theme.py            (Elven: silver filigree and moonstone; its frame, crest and small pieces
+                                           come from make_elven.py and painted_art.py, the rest from here)
 
 Pure standard library, like make_icons.py. Pieces:
-  panel_stone.png   seamless moonstone, tiled behind panels (wraps on every edge)
-  panel_stone_slate.png, panel_stone_marble.png   the other stones players can pick (settings: stone)
-  panel_frame.png   9-slice frame of light: a gold hairline, brightest at the corners, with three curves
-                    converging in each corner and faint compass arcs behind (after the game's own menus)
-  panel_flourish.png  the ornament centered on a panel's top line (after the game's lobby menus)
   check_box*.png    whole checkboxes (off / on, each with a hover version), the box with the tick in it
   button_rim*.png   our buttons' border alone (and a brighter one for selected), to lay over the game's buttons
   tip_band.png      tooltips: dark glass edged top and bottom with light, fading out at both ends
@@ -158,11 +154,6 @@ def granite(px, py, brighten=0.0):
     return c
 
 
-def panel_stone():
-    w = h = STONE_PX
-    return w, h, image(w, h, lambda x, y: granite(x, y) + (1.0,))
-
-
 def gold_line(t):
     """Gold across a rounded bar: t in [-1, 1] from one side to the other (fake cylinder lighting)."""
     light = math.cos(t * math.pi / 2)              # brightest along the middle
@@ -293,49 +284,9 @@ def keycap():
     return S, S, image(S, S, fn)
 
 
-# --- High Elf: moonstone and wispy gold light ---------------------------------------------------------------
+# --- Elven: lines of light (the tooltip band, keycaps, bars) ---------------------------------------------------------------
 
 LIGHT = (1.0, 0.86, 0.55)
-
-
-def moonstone(px, py):
-    """Seamless moonstone: dark blue-gray with a soft drifting sheen (wraps every STONE_PX)."""
-    n = pfbm(px / 64.0, py / 64.0, STONE_PX // 64, 51)
-    sheen = pfbm(px / 128.0, py / 128.0, STONE_PX // 128, 61)
-    v = 0.075 + 0.03 * n
-    c = (v * 0.92, v * 1.0, v * 1.22)
-    return mix(c, (0.40, 0.52, 0.74), max(0.0, sheen - 0.36) * 0.55)
-
-
-def moonstone_tile():
-    w = h = STONE_PX
-    return w, h, image(w, h, lambda x, y: moonstone(x, y) + (1.0,))
-
-
-def slate(px, py):
-    """Seamless slate: calm, near-plain dark stone with faint cleavage lines (wraps every STONE_PX)."""
-    n = pfbm(px / 64.0, py / 64.0, STONE_PX // 64, 21)
-    cleave = pnoise_xy(px / 64.0, py / 4.0, STONE_PX // 64, STONE_PX // 4, 5)  # stretched along x: thin layers
-    v = 0.088 + 0.022 * n + 0.009 * cleave
-    return (v * 0.97, v, v * 1.08)
-
-
-def black_marble(px, py):
-    """Seamless black marble with thin white veins (wraps every STONE_PX: the vein waves complete whole cycles)."""
-    tau = 2 * math.pi / STONE_PX
-    base = 0.05 + 0.025 * pfbm(px / 64.0, py / 64.0, STONE_PX // 64, 3)
-    warp = pfbm(px / 64.0, py / 64.0, STONE_PX // 64, 8) * 7.0
-    s1 = abs(math.sin(px * tau * 1 + py * tau * 2 + warp))
-    s2 = abs(math.sin(px * tau * 3 - py * tau * 1 + warp * 1.6 + 2.0))
-    vein = math.exp(-s1 / 0.035) * 0.48 + math.exp(-s2 / 0.02) * 0.18
-    return mix((base, base, base * 1.05), (0.72, 0.71, 0.69), vein)
-
-
-def tile_of(fn):
-    def make():
-        w = h = STONE_PX
-        return w, h, image(w, h, lambda x, y: fn(x, y) + (1.0,))
-    return make
 
 
 def hair(col, d, alpha, width=1.0, halo=3.6):
@@ -351,83 +302,6 @@ def ellipse_dist(px, py, cx, cy, a, b):
     f = (dx / a) ** 2 + (dy / b) ** 2 - 1
     g = 2 * math.hypot(dx / (a * a), dy / (b * b))
     return abs(f) / max(g, 1e-6)
-
-
-def light_frame():
-    """128px frame (drawn 64): transparent inside; everything is light. The corners hold all the detail and stay
-    fixed in 9-slicing; the edges between them stretch, so they are an even, dimmer line."""
-    S = 128
-    INSET = 7.0
-    MARGIN = 58                    # the 9-slice corner size (frameMargin = 58/128)
-    CONV, REACH = 22.0, (22.0, 36.0, 52.0)
-    EDGE_A = 0.42                  # brightness of the stretched edges
-
-    def fn(x, y):
-        col = (0.0, 0.0, 0.0, 0.0)
-        u = (x - INSET) if x < S / 2 else (S - INSET - x)   # from the frame line, per corner
-        v = (y - INSET) if y < S / 2 else (S - INSET - y)
-        if u < -6 or v < -6:
-            return col
-        # the square hairline: bright at the corner, easing to EDGE_A by the slice boundary
-        along = max(u, v)
-        a = EDGE_A + (1 - EDGE_A) * clamp01(1 - along / (MARGIN - INSET - 4)) ** 1.5
-        d = min(abs(u) if v >= -1 else 99, abs(v) if u >= -1 else 99)
-        col = hair(col, d, a)
-        # three curves converging on the horizontal edge
-        for b in REACH:
-            if u <= CONV + 8 and v <= b + 8:
-                if u > CONV:
-                    dd = math.hypot(u - CONV, v)
-                elif v > b:
-                    dd = math.hypot(u, v - b)
-                else:
-                    dd = ellipse_dist(u, v, CONV, b, CONV, b)
-                k = math.hypot(u - CONV, v) / (b + CONV)
-                col = hair(col, dd, 0.95 * math.exp(-k * 1.6) + 0.12, 0.85)
-        # faint compass arcs, fading before the slice boundary
-        fade = clamp01(1 - math.hypot(u, v) / (MARGIN - INSET))
-        for (cx, cy, r, aa) in ((30, 30, 26, 0.16), (18, 40, 22, 0.10)):
-            col = hair(col, abs(math.hypot(u - cx, v - cy) - r), aa * fade, 0.7)
-        # bloom where the curves meet the edge
-        r2 = ((u - CONV) ** 2 + v * v) / 160.0
-        col = over(col, LIGHT + (1.0,), math.exp(-r2) * 0.25)
-        return col
-
-    return S, S, image(S, S, fn)
-
-
-def panel_flourish():
-    """128x64 (drawn 64x32): the ornament centered on a panel's top line, after the game's lobby menus: a diamond
-    of light standing on the line, with two pairs of curves fanning up and out from its foot. The line itself runs
-    through y = LINE, so the image is placed with that row on the frame's top hairline."""
-    W, H = 128, 64
-    CX, LINE = 64.0, 46.0
-
-    def fn(x, y):
-        col = (0.0, 0.0, 0.0, 0.0)
-        dx, dy = x - CX, y - LINE
-        # soft bloom where the ornament meets the line
-        col = over(col, LIGHT + (1.0,), math.exp(-(dx * dx / 260.0 + dy * dy / 90.0)) * 0.35)
-        # the diamond: standing on the line, its top 30 px up
-        dcx, dcy, rx, ry = CX, LINE - 15.0, 9.0, 15.0
-        f = abs(x - dcx) / rx + abs(y - dcy) / ry
-        col = hair(col, abs(f - 1) * min(rx, ry) * 0.85, 0.95, 0.9, 2.6)
-        # a small inner diamond and a bright heart
-        f2 = abs(x - dcx) / (rx * 0.45) + abs(y - dcy) / (ry * 0.45)
-        col = hair(col, abs(f2 - 1) * rx * 0.4, 0.55, 0.7, 2.0)
-        col = over(col, mix(GOLD, GOLD_HI, 0.8) + (1.0,), cover(math.hypot(x - dcx, y - dcy) - 1.6))
-        # two pairs of curves from the diamond's foot, fanning up and out, fading toward their tips
-        if y <= LINE + 1:
-            for (r, h, a) in ((20.0, 14.0, 0.85), (34.0, 9.0, 0.6)):
-                for side in (-1, 1):
-                    ex = CX + side * r
-                    if side * (x - CX) >= 0:
-                        d = ellipse_dist(x, y, ex, LINE, r, h)
-                        reach = clamp01(1 - abs(x - CX) / (r * 2 + 4))
-                        col = hair(col, d, a * reach ** 0.6, 0.8, 2.4)
-        return col
-
-    return W, H, image(W, H, fn)
 
 
 def check_mark():
@@ -800,27 +674,23 @@ BODY = (40, 88)     # a slice of the body: no ends
 POINT = (96, 128)   # the right 32 px: the point
 
 
-THEME_LUA = """-- Demi-human theme: moonstone and wispy gold light (High Elf meets Dwarven). Colors are linear RGB (0..1).
+THEME_LUA = """-- Elven theme: antique silver filigree and moonstone. Colors are linear RGB (0..1).
 -- Sizes are UI units (1920x1080 reference): the art in ui/ is made at twice these, so it stays sharp.
 return {
-    gold = { 0.86, 0.66, 0.26 },          -- highlights (the selected row in lists)
-    ink = { 1.0, 0.84, 0.52 },            -- lettering on title bars, drag bars and buttons: gold light
-    heading = { 0.95, 0.76, 0.40 },
+    gold = { 0.40, 0.76, 0.78 },          -- highlights (the selected row in lists): moonstone
+    ink = { 0.86, 0.97, 1.0 },            -- lettering on title bars, drag bars and buttons: moonlight
+    heading = { 0.72, 0.92, 0.94 },
     label = { 0.88, 0.88, 0.92 },
     dim = { 0.58, 0.60, 0.66 },
     panelColor = { 0.07, 0.08, 0.10, 0.94 },
+    background = "panel_bg_silk.png",    -- the panels' background when it's the theme's own (settings: stone)
     panelTile = 128,
-    frameSize = 64,
-    frameMargin = 0.453,                   -- 58 of the frame art's 128 pixels are corner
-    panelPad = { 18, 16, 18, 16 },
     titleArt = "title_line.png",
     titleSize = { 128, 32 },
     titleMargin = { 0.25, 0.35 },
     keySize = 64,
     keyMargin = 0.32,
     flourishArt = "panel_flourish.png",   -- centered on a panel's top line
-    flourishSize = { 64, 32 },
-    flourishLine = 23,                     -- the art's row (UI units) that sits on the panel's top line
     checkArt = "check_mark.png",           -- the tick in a checkbox (drawn at checkSize)
     checkSize = { 32, 32 },
     checkBoxArt = { off = "check_box.png", offHover = "check_box_hover.png", on = "check_box_on.png",
@@ -828,7 +698,8 @@ return {
     tipArt = "tip_band.png",               -- tooltips: a band of dark glass edged top and bottom with light (9-slice)
     tipSize = { 128, 64 },
     tipMargin = { 0.22, 0.19 },            -- the fading ends and the lines stay fixed; the middle stretches
-    tipLine = 3,                           -- the lines' distance in from the band's top and bottom (UI units)
+    tipLine = 6,                           -- the lines' distance in from the band's top and bottom (UI units: the game
+                                           -- sizes the band's slices by its art's own pixels, and the lines are 6px in)
     rimArt = { off = "button_rim.png", on = "button_rim_on.png" }, -- our button border alone, over a game button
     rimSize = 32,
     rimMargin = 0.34,
@@ -854,8 +725,8 @@ def at_drawn_size(folder, name):
 
 
 def main():
-    theme = sys.argv[1] if len(sys.argv) > 1 else "demihuman"
-    if theme in ("warrior", "ranger"):
+    theme = sys.argv[1] if len(sys.argv) > 1 else "elven"
+    if theme in ("warrior", "ranger", "wizard", "dwarven"):
         import importlib
         mod = importlib.import_module("make_" + theme)
         out = os.path.join(ROOT, theme, "ui")
@@ -868,15 +739,16 @@ def main():
         with open(os.path.join(ROOT, theme, "theme.lua"), "w", encoding="utf-8", newline="\n") as f:
             f.write(mod.THEME_LUA)
         print("wrote theme.lua")
+        if theme == "wizard":  # (its frame and crest are paintings, fitted to the game by make_wizard_art)
+            importlib.import_module("make_wizard_art").main()
+        elif theme in ("warrior", "ranger", "dwarven"):  # (painted too: tools/painted_art.py)
+            importlib.import_module("painted_art").main(theme)
         return
-    if theme != "demihuman":
-        raise SystemExit("only the Demi-human, Warrior and Ranger themes are generated so far")
+    if theme != "elven":
+        raise SystemExit("the themes are elven, warrior, ranger, wizard and dwarven")
     out = os.path.join(ROOT, theme, "ui")
     os.makedirs(out, exist_ok=True)
-    for name, make in (("panel_stone.png", moonstone_tile), ("panel_stone_slate.png", tile_of(slate)),
-                       ("panel_stone_marble.png", tile_of(black_marble)), ("panel_frame.png", light_frame),
-                       ("panel_flourish.png", panel_flourish),
-                       ("check_mark.png", check_mark), ("tip_band.png", tip_band),
+    for name, make in (("check_mark.png", check_mark), ("tip_band.png", tip_band),
                        ("button_rim.png", lambda: button_rim()), ("button_rim_on.png", lambda: button_rim(True)),
                        ("check_box.png", lambda: check_box()), ("check_box_hover.png", lambda: check_box(bright=True)),
                        ("check_box_on.png", lambda: check_box(True)),
@@ -899,9 +771,22 @@ def main():
         png(os.path.join(out, name), w, h, px)
         at_drawn_size(out, name)
         print("wrote", name, w, "x", h)
+    # Elven's own look (silver and moonstone, the Ranger's rounded shapes) over the base pieces above, then its
+    # painted frame and crest
+    import importlib
+    import painted_art
+    elven = importlib.import_module("make_elven")
+    for name, make in elven.PIECES:
+        w, h, px = make()
+        png(os.path.join(out, name), w, h, px)
+        at_drawn_size(out, name)
+        print("wrote", name, w, "x", h)
+    line = painted_art.Painted("elven").channel * 0.783
+    body = THEME_LUA[:THEME_LUA.rindex("}")]
     with open(os.path.join(ROOT, theme, "theme.lua"), "w", encoding="utf-8", newline="\n") as f:
-        f.write(THEME_LUA)
+        f.write(body + elven.FRAME_LUA.replace("FRAMELINE", "%.1f" % line) + "}\n")
     print("wrote theme.lua")
+    painted_art.main("elven")
 
 
 if __name__ == "__main__":

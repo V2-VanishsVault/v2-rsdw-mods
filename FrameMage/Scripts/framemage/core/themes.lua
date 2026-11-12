@@ -1,4 +1,4 @@
--- UI themes: Demi-human (the default: High Elf meets Dwarven), Warrior, Ranger, Wizard. (core/theme.lua is something else: the parser for
+-- UI themes: Elven (the default: silver filigree and moonstone), Warrior, Ranger, Wizard, Dwarven. (core/theme.lua is something else: the parser for
 -- material theme files.)
 --
 -- A theme is a folder, Art/themes/<name>/:
@@ -6,14 +6,18 @@
 --   materials.lua       re-colors animated (material) effects
 --   ui/*.png            Frame Mage's own panels, title bars and keycaps
 --   theme.lua           colors and sizes for Frame Mage's own panels (data only)
--- Anything a theme doesn't have comes from Demi-human, so a new theme can start empty and fill in over time.
+-- Anything a theme doesn't have comes from Elven, so a new theme can start empty and fill in over time.
 local M = {}
 
-M.LIST = { "demihuman", "warrior", "ranger", "wizard" }
-M.LABELS = { demihuman = "Demi-human", warrior = "Warrior", ranger = "Ranger", wizard = "Wizard" }
-M.DEFAULT = "demihuman"
+M.LIST = { "dwarven", "elven", "ranger", "warrior", "wizard" } -- (alphabetical: the order Settings offers them)
+M.LABELS = { elven = "Elven", warrior = "Warrior", ranger = "Ranger", wizard = "Wizard", dwarven = "Dwarven" }
+-- The base theme: anything another theme doesn't have comes from it.
+M.BASE = "elven"
+-- The theme used until one is chosen.
+M.DEFAULT = "elven"
 -- Old names that still work (settings saved before a rename).
-M.ALIASES = { general = "demihuman" }
+-- ("default" was a theme for a while: the game's own look; dropped, so it loads as Elven)
+M.ALIASES = { general = "elven", demihuman = "elven", default = "elven" }
 
 -- Pure: a theme name with old names mapped to current ones. Unit-tested.
 function M.canonical(name)
@@ -42,7 +46,35 @@ M.BUILTIN = {
 local ctx
 local styleCache
 
-function M.init(c) ctx = c end
+-- Other mods styled by Frame Mage (Storage Mage, ...) follow the theme through two UE4SS shared variables (see
+-- docs/theming-for-mods.md): FrameMage.theme (the canonical name, one of M.LIST) and FrameMage.themeRev (a number
+-- that goes up on every change, so a mod polling it notices a switch and restyles live). Both set at start-up too.
+M.rev = 0
+local warnedShare
+
+-- Pure: the shared variables for a theme and revision, as { name = value }. Unit-tested.
+function M.sharedValues(name, rev)
+    return { ["FrameMage.theme"] = name, ["FrameMage.themeRev"] = rev }
+end
+
+function M.publish()
+    M.rev = M.rev + 1
+    local values = M.sharedValues(M.current(), M.rev)
+    local ok, err = pcall(function()
+        for k, v in pairs(values) do ModRef:SetSharedVariable(k, v) end
+    end)
+    if not ok and not warnedShare then
+        warnedShare = true
+        ctx.log.warn("themes: could not publish the theme to other mods (shared variables): %s", tostring(err))
+    elseif ok then
+        ctx.log.info("themes: published FrameMage.theme = %s (rev %d)", values["FrameMage.theme"], M.rev)
+    end
+end
+
+function M.init(c)
+    ctx = c
+    pcall(M.publish)
+end
 
 local function known(name)
     name = M.canonical(name)
@@ -59,10 +91,10 @@ end
 
 function M.dir(name) return ctx.dir .. "Art/themes/" .. (name or M.current()) .. "/" end
 
--- Pure: where to look for a file, in order (the theme, then Demi-human). Unit-tested.
+-- Pure: where to look for a file, in order (the theme, then the base theme). Unit-tested.
 function M.searchOrder(name)
-    if name == M.DEFAULT then return { M.DEFAULT } end
-    return { name, M.DEFAULT }
+    if name == M.BASE then return { M.BASE } end
+    return { name, M.BASE }
 end
 
 -- The first theme folder holding `rel` (e.g. "ui/panel_frame.png", "T_Bar_Bg.png"), or nil.
@@ -100,12 +132,12 @@ local function readStyle(name)
     return t
 end
 
--- The active style: built-in, then Demi-human's theme.lua, then the theme's own.
+-- The active style: built-in, then Elven's theme.lua, then the theme's own.
 function M.style()
     if styleCache then return styleCache end
-    local s = M.merge(M.BUILTIN, readStyle(M.DEFAULT))
+    local s = M.merge(M.BUILTIN, readStyle(M.BASE))
     local cur = M.current()
-    if cur ~= M.DEFAULT then s = M.merge(s, readStyle(cur)) end
+    if cur ~= M.BASE then s = M.merge(s, readStyle(cur)) end
     styleCache = s
     return s
 end
@@ -124,10 +156,11 @@ function M.set(name)
     styleCache = nil
     ctx.saveSettings()
     ctx.events.emit("themechanged", name)
-    local made = name == M.DEFAULT or M.isMade(name)
-    ctx.log.info("theme: %s%s", M.LABELS[name], made and "" or " (not made yet: Demi-human's art is used)")
+    pcall(M.publish)
+    local made = name == M.BASE or M.isMade(name)
+    ctx.log.info("theme: %s%s", M.LABELS[name], made and "" or " (not made yet: Elven's art is used)")
     local editor = ctx.features and ctx.features.editor
-    if editor and not made then editor.flash(M.LABELS[name] .. " theme is coming soon: showing Demi-human") end
+    if editor and not made then editor.flash(M.LABELS[name] .. " theme is coming soon: showing Elven") end
     return true
 end
 

@@ -235,11 +235,20 @@ end
 do
     local TH = require("framemage.core.themes")
     local o = TH.searchOrder("wizard")
-    eq("theme search: own first", o[1], "wizard"); eq("theme search: then demihuman", o[2], "demihuman")
-    eq("theme search: demihuman alone", #TH.searchOrder("demihuman"), 1)
-    eq("old theme name still works", TH.canonical("general"), "demihuman")
+    eq("theme search: own first", o[1], "wizard"); eq("theme search: then elven", o[2], "elven")
+    eq("theme search: elven alone", #TH.searchOrder("elven"), 1)
+    eq("old theme name still works", TH.canonical("general"), "elven")
     check("old theme name is known", TH.known("general"))
-    check("theme known", TH.known("ranger")); check("theme unknown", not TH.known("default"))
+    check("theme known", TH.known("ranger")); check("theme unknown", not TH.known("nonsense"))
+    check("Dwarven is a theme", TH.known("dwarven"))
+    eq("Default (dropped) loads as Elven", TH.canonical("default"), "elven")
+    eq("Demi-human is now Elven", TH.canonical("demihuman"), "elven")
+    do  -- the Settings picker offers every theme, in the same order
+        local row
+        for _, r in ipairs(require("framemage.core.options").SCHEMA) do if r.setting == "theme" then row = r end end
+        eq("Settings offers every theme", table.concat(row.options, ","), table.concat(TH.LIST, ","))
+        for _, name in ipairs(TH.LIST) do check("Settings names theme " .. name, row.labels[name] == TH.LABELS[name]) end
+    end
     local m = TH.merge({ gold = { 1, 0, 0 }, panelPad = { 1, 2, 3, 4 }, nested = { a = 1, b = 2 } },
         { gold = { 0, 1, 0 }, nested = { b = 3 } })
     eq("merge replaces color arrays", m.gold[2], 1); eq("merge keeps untouched", m.panelPad[4], 4)
@@ -253,11 +262,15 @@ do
     eq("box brush single margin", ST.brushSpec("tex", "box", 64, 64, 0.25).Margin.Bottom, 0.25)
     eq("border brush: edges tiled (Slate's Border draw)", ST.brushSpec("tex", "border", 256, 256, 0.19).DrawAs, 2)
     eq("box brush: stretched", ST.brushSpec("tex", "box", 256, 256, 0.19).DrawAs, 1)
-    eq("stone: moonstone is the default tile", ST.stoneFile("moonstone"), "panel_stone.png")
-    eq("stone: slate", ST.stoneFile("slate"), "panel_stone_slate.png")
-    eq("stone: marble", ST.stoneFile("marble"), "panel_stone_marble.png")
-    eq("stone: unknown falls back", ST.stoneFile("granite"), "panel_stone.png")
-    eq("stone: none falls back", ST.stoneFile(nil), "panel_stone.png")
+    eq("background: slate is a painting now", ST.stoneFile("slate"), "panel_bg_slate.png")
+    eq("background: a removed one (moonstone) is the theme's own", ST.stoneFile("moonstone", { background = "x.png" }), "x.png")
+    eq("background: unknown, and no theme background: slate", ST.stoneFile("granite"), "panel_bg_slate.png")
+    eq("background: none: slate", ST.stoneFile(nil), "panel_bg_slate.png")
+    eq("background: a painting's tile", ST.stoneFile("forge"), "panel_bg_forge.png")
+    eq("background: the theme's own", ST.stoneFile("theme", { background = "panel_bg_silk.png" }), "panel_bg_silk.png")
+    eq("background: a theme without one gets slate", ST.stoneFile("theme", {}), "panel_bg_slate.png")
+    eq("background: a painting is drawn twice a stone's size", ST.stoneTile("panel_bg_oak.png", 128), 256)
+    eq("background: anything else at a stone's size", ST.stoneTile("panel_stone.png", 128), 128)
 end
 
 -- texture dump details
@@ -359,6 +372,9 @@ end
 -- progress-bar style
 do
     local B = require("framemage.features.bars")
+    eq("bars: the special bar as tall as the tallest", B.rawHeight(15, 21, true), 21)
+    eq("bars: a bar keeps its own height when they needn't match", B.rawHeight(15, 21, false), 15)
+    eq("bars: no height yet", B.rawHeight(0, 21, true), nil)
     check("health bar class", B.isBarClass("WBP_HUD_Vitals_HealthBar_C"))
     check("stamina bar class", B.isBarClass("WBP_HUD_Vitals_StaminaBar_C"))
     check("other widget not a bar", not B.isBarClass("WBP_HUD_PlayerVitalsBars_C"))
@@ -445,6 +461,10 @@ do
         check("settings: four lines of help kept free (11 pt: 66 units)", St.tipHeight(11, 4) == 66)
         eq("settings: the panel widens to fit its tabs", St.panelWidth(540, 611.2), 612)
         eq("settings: never narrower than its set width", St.panelWidth(540, 300), 540)
+        local th = { "dwarven", "elven", "ranger", "warrior", "wizard" }
+        eq("drop-down: the current value lit", St.dropLit(th, "ranger", nil), 3)
+        eq("drop-down: the hovered entry lit instead", St.dropLit(th, "ranger", 5), 5)
+        eq("drop-down: nothing lit for an unknown value", St.dropLit(th, "nonsense", nil), nil)
         local x, y = St.onScreen(1200, 300, 1920, 1080)
         eq("saved position kept", x, 1200); eq("saved y kept", y, 300)
         x, y = St.onScreen(3000, 2000, 1920, 1080)
@@ -590,8 +610,8 @@ near("hex alpha stays linear", c.A, 128 / 255)
 c = T.parseColor({ 0.5, 0.25, 0 })
 near("table is linear as-is", c.R, 0.5); near("table default alpha", c.A, 1)
 check("bad hex rejected", T.parseColor("#12345") == nil)
-do -- the Demi-human material theme loads cleanly (no flat override of the animated selection border)
-    local mt, probs = T.normalize(dofile("FrameMage/Art/themes/demihuman/materials.lua"))
+do -- the Elven material theme loads cleanly (no flat override of the animated selection border)
+    local mt, probs = T.normalize(dofile("FrameMage/Art/themes/elven/materials.lua"))
     eq("theme materials.lua has no problems", #probs, 0)
     check("no flat color on the item selection border", T.lookup(mt, "MID_MI_Item_Selected", "MI_Item_Selected") == nil)
 end
@@ -775,7 +795,7 @@ do -- inventory: the hotbar on its own, the window in our look
     local Sty = require("framemage.editor.style")
     local pm = Sty.plateMargin({ 0.25, 0.35 })
     check("plates: no squashable band down the sides (end ornaments in the corners)", pm[1] == 0.25 and pm[2] == 0.5)
-    -- Demi-human: frame drawn 64, its hairline 3.5 in; the flourish's line is 23 down its 32
+    -- Elven: frame drawn 64, its hairline 3.5 in; the flourish's line is 23 down its 32
     eq("flourish sits on the frame's top line", Sty.flourishTop({ frameSize = 64, flourishLine = 23 }), -19.5)
     local d = require("framemage.defaults").inventory
     check("inventory restyle on by default", d.restyle == true)
@@ -819,9 +839,9 @@ do -- inventory: the hotbar on its own, the window in our look
     local bp = Inv.WINDOWS.WBP_Panel_Building_C
     check("Build panel restyled, its background never touched", bp ~= nil and bp.kind == "building" and bp.ownStone == true)
     check("Build panel's category tabs get our border", bp ~= nil and bp.tabs == true)
-    local thm = dofile("FrameMage/Art/themes/demihuman/theme.lua")
-    check("theme button rim art", thm.rimArt and io.open("FrameMage/Art/themes/demihuman/ui/" .. thm.rimArt.off) ~= nil
-        and io.open("FrameMage/Art/themes/demihuman/ui/" .. thm.rimArt.on) ~= nil)
+    local thm = dofile("FrameMage/Art/themes/elven/theme.lua")
+    check("theme button rim art", thm.rimArt and io.open("FrameMage/Art/themes/elven/ui/" .. thm.rimArt.off) ~= nil
+        and io.open("FrameMage/Art/themes/elven/ui/" .. thm.rimArt.on) ~= nil)
     check("inventory: stone on the game's own background", not Inv.WINDOWS.WBP_Panel_Inventory_C.ownStone)
     check("chest: its background never touched (own stone layer)", Inv.WINDOWS.WBP_Panel_WorldActorInventory_C.ownStone == true)
     local cr = Inv.WINDOWS.WBP_Panel_C
@@ -835,35 +855,35 @@ do -- inventory: the hotbar on its own, the window in our look
     -- tooltip flourishes: line row 23 of 32 onto lines 3 in from the edge; flipped, the same padding at the bottom
     eq("tip flourish padding", St2.flourishPad({ flourishLine = 23 }, 3), -20)
     eq("tip flourish padding, drawn at half size", St2.flourishPad({ flourishLine = 46 }, 3, 0.5), -20)
-    eq("frame line: Demi-human's hairline", St2.frameLine({ frameSize = 64 }), 3.5)
+    eq("frame line: Elven's hairline", St2.frameLine({ frameSize = 64 }), 3.5)
     eq("frame line: a wide frame's own", St2.frameLine({ frameSize = 128, frameLine = 9 }), 9)
     eq("wide frame's flourish sits on its center line", St2.flourishTop({ frameSize = 128, frameLine = 9, flourishLine = 46 }), -37)
     local inset = { Left = 7, Top = 8, Right = 6, Bottom = 8 }
     eq("frame inset kept", St2.framePadding(inset, {}).Top, 8)
     eq("panel padding: the theme's", St2.panelPadding(nil, { panelPad = { 16, 14, 16, 14 } })[1], 16)
     eq("panel padding: a panel's own, plus room for a wide border", St2.panelPadding({ 12, 10, 12, 10 }, { framePadExtra = 18 })[2], 28)
-    eq("panel padding: a panel's own, unchanged by Demi-human", St2.panelPadding({ 12, 10, 12, 10 }, {})[3], 12)
+    eq("panel padding: a panel's own, unchanged by Elven", St2.panelPadding({ 12, 10, 12, 10 }, {})[3], 12)
     eq("wide frame runs to the window's edge", St2.framePadding(inset, { frameToEdge = true }).Left, 0)
     eq("frame pushed further out", St2.framePadding(inset, { frameToEdge = true, frameOutset = 3 }).Right, -3)
     local fbx = Inv.frameBox({ x = 10, y = 20, w = 100, h = 50 }, 4)
     check("bare window frame grown outward", fbx.x == 6 and fbx.y == 16 and fbx.w == 108 and fbx.h == 58)
-    for _, theme in ipairs({ "warrior", "ranger" }) do
+    for _, theme in ipairs({ "warrior", "ranger", "wizard" }) do
         local t = dofile("FrameMage/Art/themes/" .. theme .. "/theme.lua")
-        check(theme .. ": wide frame round the window, edges tiled", t.frameToEdge == true and t.frameOutset == 10 and t.frameSize == 256 and t.frameDraw == "border")
+        check(theme .. ": wide frame round the window, edges tiled", t.frameToEdge == true and t.frameOutset == 20 and t.frameSize == 256 and t.frameDraw == "border")
         check(theme .. ": small flourish on tooltips", t.tipFlourishScale == 0.5)
     end
     eq("tooltip panel restyled", Inv.TOOLTIP, "WBP_Panel_Tooltip_C")
-    check("theme tooltip band art", io.open("FrameMage/Art/themes/demihuman/ui/"
-        .. dofile("FrameMage/Art/themes/demihuman/theme.lua").tipArt) ~= nil)
+    check("theme tooltip band art", io.open("FrameMage/Art/themes/elven/ui/"
+        .. dofile("FrameMage/Art/themes/elven/theme.lua").tipArt) ~= nil)
     eq("checkbox: off", St2.checkState(false, false), "off"); eq("checkbox: off, hovered", St2.checkState(false, true), "offHover")
     eq("checkbox: on", St2.checkState(true, false), "on"); eq("checkbox: on, hovered", St2.checkState(true, true), "onHover")
-    local th = dofile("FrameMage/Art/themes/demihuman/theme.lua")
+    local th = dofile("FrameMage/Art/themes/elven/theme.lua")
     for _, k in ipairs({ "off", "offHover", "on", "onHover" }) do
         local f = th.checkBoxArt and th.checkBoxArt[k]
-        check("theme checkbox art " .. k, f ~= nil and io.open("FrameMage/Art/themes/demihuman/ui/" .. f) ~= nil)
+        check("theme checkbox art " .. k, f ~= nil and io.open("FrameMage/Art/themes/elven/ui/" .. f) ~= nil)
     end
-    check("theme flourish art", io.open("FrameMage/Art/themes/demihuman/ui/" .. th.flourishArt) ~= nil)
-    do -- class themes: their own theme.lua (Warrior red, Ranger green) and their own art under Demi-human's names
+    check("theme flourish art", io.open("FrameMage/Art/themes/elven/ui/" .. th.flourishArt) ~= nil)
+    do -- class themes: their own theme.lua (Warrior red, Ranger green) and their own art under Elven's names
         local wt = dofile("FrameMage/Art/themes/warrior/theme.lua")
         check("warrior theme: red highlight", wt.gold[1] > 0.5 and wt.gold[2] < 0.3)
         local rt = dofile("FrameMage/Art/themes/ranger/theme.lua")
@@ -1192,6 +1212,11 @@ do
     check("a station window gets the gap", Inv.wantsGap("processing", false) and Inv.wantsGap("chest", false))
     check("not the inventory, nor a window you placed", not Inv.wantsGap("inventory", false) and not Inv.wantsGap("crafting", true))
     eq("never more than the most it may move", Inv.tipShift(200, 6, 60), 60)
+end
+do
+    local Th = require("framemage.core.themes")
+    local v = Th.sharedValues("wizard", 3)
+    check("themes: other mods get the theme and its revision", v["FrameMage.theme"] == "wizard" and v["FrameMage.themeRev"] == 3)
 end
 print(string.format("%d passed, %d failed", passes, failures))
 os.exit(failures == 0 and 0 or 1)

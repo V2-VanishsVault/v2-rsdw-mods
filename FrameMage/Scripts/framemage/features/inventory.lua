@@ -313,7 +313,13 @@ local function rimTabs(panel)
         local anchor, tree = child(w, kind.anchor, kind.anchorClass), w.WidgetTree
         local overlay = anchor and W.parent(anchor)
         local okO, ocls = pcall(W.className, overlay)
-        if anchor and tree and okO and ocls == "Overlay" then
+        -- (a tab that already has our border is left alone: this runs again for tabs added later)
+        local done = false
+        for _, k in ipairs(overlay and W.children(overlay) or {}) do
+            local okN, n = pcall(W.name, k)
+            if okN and n:sub(1, 10) == "FM_TabRim_" then done = true end
+        end
+        if anchor and tree and okO and ocls == "Overlay" and not done then
             made = made + 1
             local img = StaticConstructObject(StaticFindObject("/Script/UMG.Image"), tree, FName("FM_TabRim_" .. made))
             pcall(function() img:SetVisibility(3) end)
@@ -690,17 +696,107 @@ end
 M.TOOLTIP = "WBP_Panel_Tooltip_C"
 local tips = {} -- fullName -> { panel, art, band, top, bottom }
 
+-- The banner some tooltips show a time on (a status effect's: "06:46"), the game's beige T_Tooltip_Banner_Bg: on
+-- the theme's own (ui/tip_banner.png) when it has one, its lettering light to read on it; the game's again when not.
+M.BANNERS = { T_Tooltip_Banner_Bg = true }
+local loggedTipArt = {}
+
+local function brushTexOf(w)
+    local ok, tex = pcall(function() return w.Brush.ResourceObject end)
+    if not (ok and tex) then ok, tex = pcall(function() return w.Background.ResourceObject end) end
+    if ok and tex and W.valid(tex) then
+        local okN, n = pcall(W.name, tex)
+        return tex, okN and n or nil
+    end
+    return nil, nil
+end
+
+local function findBanners(t)
+    local owner = W.owner(t.panel)
+    if not owner then return end
+    t.banners = t.banners or {}
+    local okC, ocls = pcall(W.className, owner)
+    local seen = {}
+    W.walk(owner, function(w)
+        local okK, cls = pcall(W.className, w)
+        if okK and (cls == "Image" or cls == "Border" or cls == "CommonLazyImage") then
+            local tex, n = brushTexOf(w)
+            if n then seen[#seen + 1] = W.name(w) .. "=" .. n end
+            if n and M.BANNERS[n] and not t.banners[W.fullName(w)] then
+                t.banners[W.fullName(w)] = { w = w, tex = tex, cls = cls }
+            end
+        end
+        return true
+    end)
+    local key = okC and ocls or "?"
+    if not loggedTipArt[key] then
+        loggedTipArt[key] = true
+        log.info("inventory: tooltip %s pictures: %s", key, table.concat(seen, ", "))
+    end
+end
+
+local function themeBanners(t)
+    local s = themes.style()
+    local path = themes.find("ui/tip_banner.png")
+    local art = path and ctx.features.art and ctx.features.art.loadFile(path, t.panel)
+    for _, b in pairs(t.banners or {}) do
+        if W.valid(b.w) then
+            if art then
+                local spec = style.brushSpec(art, "box", 128, 28, { 0.22, 0.3 })
+                if b.cls == "Border" then style.setBrush(b.w, spec) else pcall(function() b.w:SetBrush(spec) end) end
+            else
+                pcall(function()
+                    if b.cls == "Border" then b.w:SetBrushFromTexture(b.tex) else b.w:SetBrushFromTexture(b.tex, false) end
+                end)
+            end
+            -- its lettering - inside it (a border), or beside it in a small overlay (never the whole tooltip's
+            -- layout): light on the theme's banner, as it was on the game's
+            local parent = b.cls == "Border" and b.w or W.parent(b.w)
+            local okP, pcls = pcall(W.className, parent)
+            if parent and okP and (pcls == "Overlay" or pcls == "Border" or pcls == "SizeBox") then
+                W.walk(parent, function(x)
+                    local ok, isText = pcall(function() return x.ColorAndOpacity ~= nil and x.SetText ~= nil end)
+                    if ok and isText then
+                        local full = W.fullName(x)
+                        b.texts = b.texts or {}
+                        if not b.texts[full] then
+                            pcall(function()
+                                local c = x.ColorAndOpacity.SpecifiedColor
+                                b.texts[full] = { w = x, c = { R = c.R, G = c.G, B = c.B, A = c.A } }
+                            end)
+                        end
+                        local rec = b.texts[full]
+                        pcall(function()
+                            x:SetColorAndOpacity({ SpecifiedColor = art and style.label() or (rec and rec.c), ColorUseRule = 0 })
+                        end)
+                    end
+                    return true
+                end)
+            end
+        end
+    end
+end
+
 local function skinTip(t)
     local band = style.tipBrush(t.panel)
     if band then style.setBrush(t.band, band) end
+    pcall(findBanners, t)
+    pcall(themeBanners, t)
     -- (a theme with a big panel flourish draws it smaller on tooltips: tipFlourishScale)
     local scale = themes.style().tipFlourishScale or 1
-    local spec = style.flourishBrush(t.panel, scale)
     local pad = style.flourishPad(themes.style(), themes.style().tipLine or 3, scale)
+    -- a theme may have tooltip crests of its own (tip_flourish.png; tip_flourish_bottom.png already the right way
+    -- up for the bottom line, so drawn unflipped); else the usual crest, the bottom one flipped
+    local bottomArt = themes.find("ui/tip_flourish_bottom.png") ~= nil
     for _, which in ipairs({ "top", "bottom" }) do
         local f = t[which]
         if f and W.valid(f) then
+            local file = which == "top" and "tip_flourish.png" or (bottomArt and "tip_flourish_bottom.png" or "tip_flourish.png")
+            local spec = style.flourishBrush(t.panel, scale, file)
             if spec then style.setBrush(f, spec) end
+            if which == "bottom" then
+                pcall(function() f:SetRenderScale({ X = 1, Y = bottomArt and 1 or -1 }) end)
+            end
             pcall(function()
                 if which == "top" then f.Slot:SetPadding({ Left = 0, Top = pad, Right = 0, Bottom = 0 })
                 else f.Slot:SetPadding({ Left = 0, Top = 0, Right = 0, Bottom = pad }) end
@@ -1150,6 +1246,20 @@ function M.init(c)
                     local okB, err = pcall(restyleBare, w, M.BARE[cls])
                     if not okB then log.warn("inventory: restyle failed: %s", tostring(err)) end
                 end)
+            end)
+        elseif TABS[cls] and S.restyle ~= false then
+            -- a tab button made after its window was restyled (another mod's - Storage Mage's bag tabs - or the
+            -- game's own, later): given our border like the others, once it's laid out
+            c.sched.later(250, "inventory.lateTab", function()
+                for _, rec in pairs(windows) do
+                    if rec.tabs and W.valid(rec.panel) then
+                        local okT, more = pcall(rimTabs, rec.panel)
+                        if okT and more and #more > 0 then
+                            for _, t in ipairs(more) do rec.tabs[#rec.tabs + 1] = t end
+                            log.info("inventory: %d more tab buttons given our border", #more)
+                        end
+                    end
+                end
             end)
         elseif cls == M.TOOLTIP and S.restyle ~= false and inGame() then
             -- made fresh on hover: restyled straight away, so the game's look never shows

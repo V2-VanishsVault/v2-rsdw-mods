@@ -22,9 +22,25 @@ WOOD = {"lo": (0.11, 0.075, 0.05), "base": (0.37, 0.26, 0.17), "light": (0.58, 0
 OAK = {"lo": (0.10, 0.065, 0.035), "base": (0.42, 0.28, 0.15), "hi": (0.80, 0.66, 0.46), "env": 0.0,
        "shine": 18.0, "gloss": 0.18, "oak": True, "channel": (0.05, 0.03, 0.02)}
 
+# Polished obsidian (the Wizard): black volcanic glass - near-black, a cool sheen drifting along it (env, repeating
+# with the frame's tile) and sharp silver-blue highlights.
+OBSIDIAN = {"lo": (0.008, 0.010, 0.020), "base": (0.17, 0.19, 0.26), "hi": (0.86, 0.93, 1.0), "env": 0.30,
+            "shine": 26.0, "gloss": 1.0, "channel": (0.008, 0.015, 0.05)}
+
 # Inlays: core = the line's bright middle, edge = its color at the channel walls, glow = the light it spills.
+# Dwarven: hammered bronze, warm and satin; Elven: polished yellow gold, bright and glossy.
+BRONZE = {"lo": (0.10, 0.05, 0.02), "base": (0.62, 0.36, 0.13), "hi": (1.0, 0.82, 0.52), "env": 0.12,
+          "shine": 24.0, "gloss": 0.55, "brushed": 0.35, "channel": (0.04, 0.02, 0.01)}
+# Elven: antique sterling silver - cool mid gray, dark tarnish in the recesses, bright only where it's polished.
+SILVER = {"lo": (0.24, 0.25, 0.28), "base": (0.76, 0.78, 0.82), "hi": (1.0, 1.0, 1.0), "env": 0.22,
+          "shine": 40.0, "gloss": 0.8, "channel": (0.03, 0.035, 0.04)}
+GOLD = {"lo": (0.16, 0.09, 0.02), "base": (0.86, 0.62, 0.20), "hi": (1.0, 0.95, 0.72), "env": 0.25,
+        "shine": 40.0, "gloss": 0.85, "channel": (0.05, 0.035, 0.01)}
 RED = {"core": (0.86, 0.16, 0.10), "edge": (0.34, 0.03, 0.02), "glow": (0.55, 0.08, 0.04)}    # deep enamel red
 GREEN = {"core": (0.44, 0.62, 0.32), "edge": (0.08, 0.26, 0.09), "glow": (0.14, 0.32, 0.12)}   # natural, not neon
+BLUE = {"core": (0.62, 0.88, 1.00), "edge": (0.04, 0.22, 0.72), "glow": (0.16, 0.52, 1.00)}    # arcane, glowing
+AMBER = {"core": (1.00, 0.70, 0.22), "edge": (0.62, 0.16, 0.02), "glow": (1.00, 0.42, 0.06)}  # molten, glowing
+TEAL = {"core": (0.70, 0.98, 0.95), "edge": (0.10, 0.48, 0.52), "glow": (0.30, 0.85, 0.85)}   # moonstone
 
 TILE = 320                              # px: the repeat of every pattern along a band (a frame's tiled edge)
 
@@ -312,18 +328,18 @@ def inlay_line(col, d, line, width=0.9, channel=1.9, mat=None):
     return over(col, mix(line["edge"], line["core"], k) + (1.0,), cover(d - width))
 
 
-LIGHT = (-0.30, -0.954)  # where the light comes from: above, a little to the left (unit)
+FACE_LIGHT = (-0.30, -0.954)  # where the light comes from, seen flat (facing): above, a little to the left (unit)
 
 
 def facing(sd, x, y):
     """How much the shape's edge nearest (x, y) faces the light: 1 straight at it (a top edge), -1 away (a bottom
     edge), in between round the corners and ends - so shading turns smoothly round a shape, never flips."""
     gx, gy = gradient(sd, x, y)
-    return gx * LIGHT[0] + gy * LIGHT[1]
+    return gx * FACE_LIGHT[0] + gy * FACE_LIGHT[1]
 
 
 def framed_plate(c, d, groove_d, lit, glit, hi, lo, ink):
-    """Demi-human's filled-button build on any material: color c of the face at a point, d = its distance inside the
+    """Elven's filled-button build on any material: color c of the face at a point, d = its distance inside the
     plate's edge (negative inside), groove_d = signed distance to the engraved line ~8px in; lit / glit = how much
     the plate's edge / the groove's edge nearest the point faces the light (see facing). Returns the color with a
     raised, beveled rim (lit where it faces the light, shaded where it faces away, turning smoothly between), the

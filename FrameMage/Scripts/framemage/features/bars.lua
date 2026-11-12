@@ -339,6 +339,14 @@ end
 local function taperOn() return ctx.enabled and ctx.settings.bars.taper == true end
 
 -- Pure: the shaped bar's height from the game's: a few units taller, then scaled. Unit-tested.
+-- Pure: the game height a bar is sized from: its own, or (same = true) the tallest bar's seen so far. Unit-tested.
+local tallest = 0
+function M.rawHeight(own, tallestSeen, same)
+    if not own or own <= 0 then return nil end
+    if same then return math.max(own, tallestSeen or 0) end
+    return own
+end
+
 function M.barHeight(gameHeight, extra, scale)
     return math.floor((gameHeight + (extra or 0)) * (scale or 1) + 0.5)
 end
@@ -562,7 +570,10 @@ local function shape(barWidget)
         end)
         shaped[barName] = rec
     end
-    local height = rec.height and rec.height > 0 and M.barHeight(rec.height, B.extraHeight, B.heightScale) or nil
+    -- (every bar as tall as the tallest: the game makes the special bar slimmer than stamina and health)
+    if rec.height and rec.height > 0 then tallest = math.max(tallest, rec.height) end
+    local raw = M.rawHeight(rec.height, tallest, B.sameHeight ~= false)
+    local height = raw and M.barHeight(raw, B.extraHeight, B.heightScale) or nil
     -- the body: its height, centered in its container, ended short by the point's length
     if height then pcall(function() box:SetHeightOverride(height) end) end
     pcall(function() box.Slot:SetVerticalAlignment(2) end)

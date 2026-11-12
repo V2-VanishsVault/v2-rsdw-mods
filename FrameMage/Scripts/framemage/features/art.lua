@@ -1,5 +1,5 @@
 -- Art: replace any Image/Border brush texture with a PNG from the theme, Art/themes/<theme>/<TextureName>.png
--- (falling back to the Demi-human theme's; see core/themes.lua).
+-- (falling back to the Elven theme's; see core/themes.lua).
 -- Material brushes (animated effects) without a PNG are handed to the materials feature, which themes their
 -- parameters instead (the theme's materials.lua).
 --

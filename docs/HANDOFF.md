@@ -49,8 +49,12 @@ HUD elements in an editor, reskins the HUD with themes, and restyles the vitals 
 - **Editor elements:** the "units" model is in `editor/units.lua`.
   - Click-picking ranks visible elements before empty placeholders, smallest first; clicking again steps through.
   - Drags are kept 48 units on screen.
-- **Themes:** `Art/themes/<theme>/` with fallback to `demihuman`. Theme ids: demihuman (alias "general"), warrior,
-  ranger, wizard. Panel stone: moonstone, slate, marble.
+- **Themes:** `Art/themes/<theme>/` with fallback to `elven`. Theme ids: dwarven, elven (aliases "general",
+  "demihuman", "default"), ranger, warrior, wizard.
+- **Panel backgrounds** (setting `stone`): "theme" (each theme's own: `background` in its theme.lua) and paintings
+  (silk, forge, leather, oak, starfield, slate, dragonscale, parchment, mists, embers, abyss, aurora:
+  `tools/make_backgrounds.py` from `tools/backgrounds_src/`, drawn at 256 units). Removed names (moonstone, marble,
+  tapestry, glacier) load as the theme's own.
 - **Settings panel:** `editor/settings.lua`, with rows defined in `core/options.lua`. Mod Menu support was removed.
 
 ## Vitals bars (`features/bars.lua`), current design

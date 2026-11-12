@@ -4,8 +4,8 @@
                      background
   weight_fill.png    64x32, the same slicing: white inside the rim, clear over it - the bar's fill (tinted by the
                      load color), so the fill sits inside the rim
-  weight_icon.png    80x80: the weight symbol stamped into a plate of the theme's material (Warrior steel, Ranger
-                     oak; Demi-human keeps the game's own icon, so it has none)
+  weight_icon.png    80x80: the weight symbol stamped into a plate of the theme's material (the painted plates
+                     of Elven, Warrior, Ranger and Dwarven; the Wizard's obsidian)
 
 Run: python tools/make_weight_art.py
 """
@@ -14,7 +14,7 @@ import os
 
 import inlay
 from make_icons import png, sd_round_rect
-from make_theme import GOLD, GOLD_HI, GOLD_LO, clamp01, cover, image, mix, over
+from make_theme import clamp01, cover, image, mix, over
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "FrameMage", "Art", "themes")
 TW, TH, RIM = 64, 32, 5.0
@@ -28,16 +28,25 @@ def rim_color(theme, e, x, y, top):
             c = inlay.brushed(37.0, y)
             return mix(c, (0.9, 0.9, 0.95) if top else (0.12, 0.12, 0.14), 0.3)
         return (v * 0.98, v, v * 1.03)
+    if theme == "wizard":
+        # black glass, a cool highlight along its lit top edge, a blue glow at its inner edge
+        c = mix((0.02, 0.025, 0.05), (0.62, 0.72, 0.95), 0.5 * math.exp(-((e - 1.6) / 0.8) ** 2) if top else 0.0)
+        return mix(c, (0.15, 0.50, 1.0), 0.6 * math.exp(-((e - (RIM - 0.8)) / 0.7) ** 2))
     if theme == "ranger":
         c = inlay.oak(53.0, y * 0.6)
         c = mix(c, (0.06, 0.035, 0.02), 0.6 * math.exp(-e / 1.2))
         if top:
             c = mix(c, (0.80, 0.64, 0.44), 0.4 * math.exp(-((e - 1.6) / 0.7) ** 2))
         return c
-    # Demi-human: a gold line, lit on top
+    if theme == "dwarven":
+        # hammered bronze, lit along its top edge, darker toward the trough
+        t = e / RIM
+        c = mix((0.95, 0.70, 0.36) if top else (0.62, 0.36, 0.13), (0.22, 0.11, 0.04), abs(t - 0.35) * 1.5)
+        return mix(c, (0.07, 0.035, 0.01), 0.7 * math.exp(-e / 0.7))
+    # Elven: antique silver, lit on top, tarnished darker toward the trough
     t = e / RIM
-    c = mix(GOLD_HI if top else GOLD, GOLD_LO, abs(t - 0.4) * 1.4)
-    return mix(c, (0.20, 0.12, 0.03), 0.7 * math.exp(-e / 0.7))
+    c = mix((0.92, 0.94, 0.98) if top else (0.55, 0.57, 0.61), (0.14, 0.15, 0.17), abs(t - 0.4) * 1.4)
+    return mix(c, (0.04, 0.045, 0.05), 0.7 * math.exp(-e / 0.7))
 
 
 def trough(theme):
@@ -80,6 +89,8 @@ def weight_sd(x, y, S):
 
 def icon(theme):
     S = 80
+    if theme == "wizard":
+        return S, S, image(S, S, lambda x, y: wizard_icon(x, y, S))
 
     def fn(x, y):
         d = sd_round_rect(x, y, S / 2, S / 2, S / 2 - 2, S / 2 - 2, 12)
@@ -108,13 +119,57 @@ def icon(theme):
     return S, S, image(S, S, fn)
 
 
+def wizard_icon(x, y, S):
+    """The Wizard's: a faceted obsidian plate like the frame's rune plates (four bevels round a flat face, lit from
+    the top left), the weight traced on it as a glowing laser-etched outline, like the runes."""
+    d = sd_round_rect(x, y, S / 2, S / 2, S / 2 - 2, S / 2 - 2, 6)
+    if d > 1:
+        return (0, 0, 0, 0)
+    c0 = S / 2
+    inset = 13.0
+    u, v = x - c0, y - c0
+    face = max(abs(u), abs(v)) < c0 - inset
+    if face:
+        c = mix((0.02, 0.025, 0.045), (0.09, 0.10, 0.15), clamp01(0.5 - (u + v) / S))
+    else:
+        # which bevel: the side the point is nearest, by the diagonals
+        if abs(v) >= abs(u):
+            lit = 0.85 if v < 0 else 0.10           # top bevel faces the light, bottom away
+        else:
+            lit = 0.45 if u < 0 else 0.20           # left half lit, right in shade
+        c = mix((0.01, 0.012, 0.02), (0.42, 0.48, 0.62), lit)
+        # crisp highlight along the bevels' outer edge and their seams with the face
+        c = mix(c, (0.80, 0.88, 1.0), 0.5 * math.exp(-((-d - 1.2) / 0.8) ** 2) * (1.0 if v < 0 or u < 0 else 0.3))
+    edge = abs(max(abs(u), abs(v)) - (c0 - inset))
+    c = mix(c, (0.65, 0.75, 0.95), 0.35 * math.exp(-(edge / 0.7) ** 2))
+    # the weight: its outline etched and glowing
+    w = abs(weight_sd(x, y, S))
+    c = mix(c, (0.16, 0.52, 1.0), 0.7 * math.exp(-(w / 3.0) ** 2))
+    c = mix(c, (0.70, 0.92, 1.0), clamp01(1.8 - w))
+    return c + (cover(d),)
+
+
+
 def main():
-    for theme in ("demihuman", "warrior", "ranger"):
+    for theme in ("elven", "warrior", "ranger", "wizard", "dwarven"):
         ui = os.path.join(ROOT, theme, "ui")
         for name, make in (("weight_trough.png", lambda: trough(theme)), ("weight_fill.png", fill)):
             w, h, px = make()
             png(os.path.join(ui, name), w, h, px)
-        if theme != "demihuman":
+        if theme == "wizard":
+            import make_wizard_art   # (on the painted obsidian plate, like the frame's rune plates)
+            plate_icon = make_wizard_art.weight_icon()
+            if plate_icon:
+                plate_icon.save(os.path.join(ui, "weight_icon.png"))
+                print("weight art:", theme)
+                continue
+        if theme in ("elven", "warrior", "ranger", "dwarven") and os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                                             theme + "_src", "plate_painted.png")):
+            import painted_art       # (on the painted plate, like the frame's corners)
+            painted_art.Painted(theme).weight_icon()
+            print("weight art:", theme)
+            continue
+        if theme != "elven":
             w, h, px = icon(theme)
             png(os.path.join(ui, "weight_icon.png"), w, h, px)
         print("weight art:", theme)

@@ -4,14 +4,14 @@
 
 A dark disc with a hairline gold ring (the High Elf look). The game's own icons (stamina, health, special) are
 drawn on top of it, slightly smaller. Drawn at 4x and downsampled; written to
-FrameMage/Art/themes/demihuman/ui/badge_ring.png at 112x112. (glyph helpers below are kept for future badges)
+FrameMage/Art/themes/elven/ui/badge_ring.png at 112x112. (glyph helpers below are kept for future badges)
 """
 import math
 import os
 
 from PIL import Image, ImageDraw, ImageFilter
 
-OUT = os.path.join(os.path.dirname(__file__), "..", "FrameMage", "Art", "themes", "demihuman", "ui")
+OUT = os.path.join(os.path.dirname(__file__), "..", "FrameMage", "Art", "themes", "elven", "ui")
 SIZE = 112
 SS = 4
 N = SIZE * SS

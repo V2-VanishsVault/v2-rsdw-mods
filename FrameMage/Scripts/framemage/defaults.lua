@@ -70,8 +70,9 @@ return {
     profile = "default", -- layouts/<profile>.lua
     profiles = { "default", "combat", "minimal" },
 
-    theme = "demihuman", -- demihuman, warrior, ranger or wizard: Art/themes/<theme>/ (missing art comes from demihuman)
-    stone = "moonstone", -- the stone behind Frame Mage's own panels: moonstone, slate or marble
+    theme = "elven", -- elven, warrior, ranger, wizard or dwarven: Art/themes/<theme>/ (missing art comes from elven)
+    stone = "theme", -- what fills the panels: theme (each theme's own), silk, forge, leather, oak, starfield, slate,
+                     -- dragonscale, parchment, mists, embers, abyss or aurora
 
     layout = {
         reapplyMs = 200, -- how often moved elements are re-asserted (game animations can reset them)
@@ -86,6 +87,7 @@ return {
         rowPitch = 46, -- each bar's row height (UI units), with or without rings: rings 38 high sit 8 apart (keep
         -- it above ringSize + shadowOffsetY so neither the rings nor their shadows touch)
         taper = true, -- taller bars with a pointed right end
+        sameHeight = true, -- every vital bar as tall as the tallest (the game makes the special bar slimmer)
         extraHeight = 6, -- how much taller than the game's bars (UI units), before heightScale
         heightScale = 0.68, -- then scaled: the bars sit a little slimmer than their icon rings
         outline = true, -- a fine gold edge round the shaped bars, matching the icon rings
