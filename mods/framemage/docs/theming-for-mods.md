@@ -35,8 +35,9 @@ everywhere it's used. A widget built from the game's own pieces and textures (a 
 widgets made long after the theme was applied, or after a switch, are themed too. A brush written straight into a
 widget's properties (`img.Brush = ...`) is never seen.
 
-Frame Mage also recognizes some game widget classes and dresses them: inventory tab buttons
-(`WBP_InventoryTabButton_C`) get its button border, including ones added after their window opened.
+Frame Mage also recognizes some game widget classes and dresses them (the Build menu's category tabs get its button
+border). Inventory tab buttons (`WBP_InventoryTabButton_C`) are left in the game's look, so tabs another mod adds to
+that row need nothing from Frame Mage.
 
 ## 3. New art: a theme folder per mod
 

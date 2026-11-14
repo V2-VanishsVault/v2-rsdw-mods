@@ -102,15 +102,15 @@ end
 --              the stone). Its title banner sits inside, below the top line, so it has the flourish too.
 --   processing: a processing station's panel (the Grill, beside the inventory): like crafting, its contents in a
 --              canvas inside the overlay; its station name is inside, so it has the flourish.
--- tabs = its tab buttons (the inventory's Items / Runes / Arrows / Quest, the Build menu's categories) get our
--- buttons' border over them;
+-- tabs = its tab buttons (the Build menu's categories) get our buttons' border over them (not the inventory's:
+-- Storage Mage adds its own tabs to that row, in the game's look);
 --   building:  the Build menu: like processing (contents in a canvas, no border image of its own).
 --   lore popup: the lore popup's panel: its background is a plain image, Image_48 (T_ToolTip_Bg); bg = that name.
 --   chat:      the open chat (its background blur stays under our stone); content = the layer holding its
 --              contents (no PanelContent), fields = text box borders by name (the send box's).
 -- checks = its checkboxes are dressed (the chest's options row); flourish = false: none on its top line.
 M.WINDOWS = {
-    [PANEL] = { kind = "inventory", tabs = true },
+    [PANEL] = { kind = "inventory" },
     [CHEST_PANEL] = { kind = "chest", ownStone = true, checks = true },
     WBP_Panel_C = { kind = "crafting", ownStone = true },
     WBP_Panel_Processing_C = { kind = "processing", ownStone = true },
@@ -238,16 +238,12 @@ end
 
 -- Every 100 ms: each window's stone stays on (a chest puts its own back when it opens), and each covered
 -- checkbox shows its state.
--- Tab buttons with our buttons' border: the inventory's (WBP_InventoryTabButton: Items, Runes, Arrows, Quest) and
--- the Build menu's categories (WBP_Building_NavigableTabButton). Neither can have its own pictures swapped (the
--- inventory's tile is a CheckBox's), so the border (nothing inside it) is laid over the tile, in the button's own
--- overlay, at the tile's size; brighter on the selected tab. Per kind: the tile it sits on and how to tell the
--- selected one.
+-- Tab buttons with our buttons' border: the Build menu's categories (WBP_Building_NavigableTabButton). Its
+-- pictures can't be swapped, so the border (nothing inside it) is laid over the tile, in the button's own overlay,
+-- at the tile's size; brighter on the selected tab. Per kind: the tile it sits on and how to tell the selected one.
+-- (The inventory's tabs, WBP_InventoryTabButton, are left in the game's look: Storage Mage adds tabs to that row.
+-- They were { anchor = "RadioCheckBox", anchorClass = "CheckBox", selected = "checkbox", inset = { 9, -1 } }.)
 local TABS = {
-    -- (its picture is 62 x 32, but the tile it draws is a little narrower and a little taller - measured in game:
-    -- the border is drawn 9 narrower and 1 taller, centered on the tile; 2 lower sat on the panel's separator)
-    WBP_InventoryTabButton_C = { anchor = "RadioCheckBox", anchorClass = "CheckBox", selected = "checkbox",
-        inset = { 9, -1 } },
     -- (the selected one shows the game's own animated gold border: ours steps aside for it)
     WBP_Building_NavigableTabButton_C = { anchor = "IconBg", selected = "SelectedImage", hideSelected = true },
 }

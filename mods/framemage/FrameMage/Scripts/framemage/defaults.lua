@@ -242,7 +242,8 @@ return {
         handleMaxScreenShare = 0.5, -- containers bigger than this share of the screen get no bar (their parts do)
         handleMax = 60, -- most bars at once
         handlesMs = 400, -- how often the bars follow the HUD
-        placeholderW = 220, placeholderH = 56, -- stand-in shown for a selected element with nothing showing
+        placeholderW = 220, placeholderH = 56, -- stand-in for a selected element with nothing showing, until it has
+                                               -- been seen showing (then its own size: config/sizes.lua)
         rootsCacheSeconds = 2, -- the bars re-find the game's top-level panels this often (a full scan)
 
         -- hidden-elements panel (H): click a name to show that element

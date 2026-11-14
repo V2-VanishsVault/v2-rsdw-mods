@@ -15,6 +15,7 @@ local names = require("framemage.core.names")
 local geometry = require("framemage.core.geometry")
 local frame = require("framemage.editor.frame")
 local preview = require("framemage.editor.preview")
+local samples = require("framemage.editor.samples")
 local picker = require("framemage.editor.picker")
 local legend = require("framemage.editor.legend")
 local banner = require("framemage.editor.banner")
@@ -225,7 +226,13 @@ currentUnits = function(force)
     end
     local t0 = os.clock()
     local ok, res = pcall(units.collect, roots, sw, sh)
-    if ok then unitsCache = res else log.debug("units: %s", tostring(res)) end
+    if ok then
+        unitsCache = res
+        -- each element's size while it shows something: an empty one's stand-in is drawn at it later
+        for _, u in ipairs(res) do if not u.empty then samples.remember(u.key, u.rect) end end
+    else
+        log.debug("units: %s", tostring(res))
+    end
     unitsAt = now
     if not unitsTimed then
         unitsTimed = true
@@ -754,6 +761,7 @@ local function close(save)
     legend.hide()
     setEditInput(false)
     if save then layout.save() end
+    samples.save()
     setBanner("")
     active = false
     log.info("editor off")
@@ -824,6 +832,7 @@ function M.init(c)
     banner.init(c, S)
     handles.init(c, S)
     handles.setMarked(function(w) return inGroup(w) end)
+    samples.init(c)
     units.init(W, geometry, names, S, function(cls) return M.isAtom(cls, S.ignoreClasses, S.forceSplit) end)
     inputblock.init(c)
     hidden.init(c, S, pickHidden, saveHidden)
@@ -971,15 +980,24 @@ function M.init(c)
             local u = unitOf(selected)
             local sw, sh = geometry.screen()
             local r = u and sw and units.contentRect(selected) or geometry.rect(selected)
-            if u and u.empty then
-                -- nothing showing: a stand-in with example content, where the element will appear
+            local empty = u and u.empty
+            -- a notice the preview shows (the game's own entry, at its real size): framed as it is
+            local shownNotice = empty and preview.noticeRect(geometry.rect)
+            if shownNotice then
+                r, empty = shownNotice, false
+            elseif empty then
+                -- nothing showing: a stand-in where the element will appear, at the size it last showed at;
+                -- never seen showing: its own box when the game gives it room to grow into (Item Pickups: a
+                -- tall column), else a stand-in of the usual size
                 local at = r or u.rect
-                -- the element's own box when the game gives it room to grow into (Item Pickups: a tall column),
-                -- else a stand-in of the usual size
-                local own = geometry.rect(selected)
-                r = units.standIn(at, own, S.placeholderW, S.placeholderH, sw and sw * sh or 1920 * 1080)
+                local w, h, known = samples.sizeFor(u.key, S.placeholderW, S.placeholderH)
+                if known then
+                    r = samples.box(at, w, h, sw, sh)
+                else
+                    r = units.standIn(at, geometry.rect(selected), w, h, sw and sw * sh or 1920 * 1080)
+                end
             end
-            frame.place(r, S, titleFor(selected), u and u.empty)
+            frame.place(r, S, titleFor(selected), empty)
         else
             frame.place(nil, S)
         end

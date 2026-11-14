@@ -7,3 +7,4 @@ FrameMage/config/settings.lua
 *.bad
 __pycache__/
 luac.out
+FrameMage/config/sizes.lua
