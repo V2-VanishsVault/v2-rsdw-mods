@@ -155,14 +155,17 @@ Since the move into the monorepo there is one source and no copies in the reposi
 | 2 | Client, Frame Mage as a client | Medium |
 | 3 | Channels and schema checks, with tests | Medium |
 | 4 | Host claim, plain look | Medium |
-| 5 | Sync script, handoff to Storage Mage | Small |
+| 5 | Deploy link, test path, handoff to Storage Mage | Small |
 | 6 | Checks in game | With the user |
 
 Steps 1–4 land together: Frame Mage's panel must keep working at every commit. Until the move is done, the old
 panel stays in place, and `features.settingsPanel = "shared"` switches to the new one so both can be compared.
 
-## Decisions for the user
+## The user's decisions (2026-11-13)
 
-1. The plain look without Frame Mage: drawn without pictures (recommended), or default art shipped in every mod?
-2. Frame Mage's own settings through the shared channels too (recommended, and needed when another copy draws)?
-3. The open key stays F4, set in the panel's own Keys rows and carried by `SettingsPanel.prefs`?
+All three as recommended, so the plan above stands as written and the work can start:
+
+1. **Without Frame Mage, the panel is drawn without pictures:** dark glass, a thin gold edge, the game's font and
+   text colors. No panel art ships in any mod.
+2. **Frame Mage's own settings go through the shared channels,** like every other mod's.
+3. **The open key stays F4,** set in the panel's own Keys rows and carried between copies by `SettingsPanel.prefs`.

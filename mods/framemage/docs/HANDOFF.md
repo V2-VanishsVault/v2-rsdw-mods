@@ -105,8 +105,8 @@ Set the game to borderless windowed so screenshots aren't black.
 - **Shared Settings panel** (replaces the earlier "Mod Menu replacement" idea; no Mod Menu, user 2026-11-13): one
   panel for all the user's mods, a tab per mod, a copy in every mod, the newest copy draws.
   - Request: `mods/storagemage/docs/settings-panel-handoff.md`.
-  - Plan: `docs/settings-panel-plan.md`. It ends with three decisions for the user (plain look without Frame Mage,
-    Frame Mage's own settings through the shared channels, F4 as the open key). Start once they're answered.
+  - Plan: `docs/settings-panel-plan.md`. The user approved its three recommendations (2026-11-13): no pictures
+    without Frame Mage, Frame Mage's own settings through the shared channels, F4 as the open key. Ready to build.
   - Source: `shared/settingspanel/` at the repository's root (built into each mod's zip by `tools/build.sh`).
 - **Storage Mage's tab art (F3):** its art list is in `mods/storagemage/docs/frame-mage-handoff.md` section 2
   (`T_SM_Tab_<Bag>_Normal/_Highlight`, 124x64). Themed copies go in `Art/themes/<theme>/storagemage/`.
