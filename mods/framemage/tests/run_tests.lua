@@ -851,6 +851,8 @@ do -- inventory: the hotbar on its own, the window in our look
     check("open chat: its contents named (no PanelContent)", ch ~= nil and ch.content == "VerticalBox_27")
     check("open chat: the send box gets the light border", ch ~= nil and ch.fields and ch.fields[1] == "MessageSendBorder")
     check("open chat: contents pulled in from the frame", ch ~= nil and ch.contentPad and ch.contentPad[4] >= 10)
+    check("open chat: the send box clears the corner plates",
+        ch ~= nil and ch.contentPad and ch.contentPad[1] >= 30 and ch.contentPad[3] >= 30)
     local ap = Inv.addPadding({ Left = 2, Top = 0, Right = 0, Bottom = 4 }, { 12, 12, 12, 12 })
     eq("padding added (left)", ap.Left, 14); eq("padding added (bottom)", ap.Bottom, 16)
     eq("no extra: padding kept", Inv.addPadding({ Left = 2, Top = 0, Right = 0, Bottom = 4 }, nil).Left, 2)

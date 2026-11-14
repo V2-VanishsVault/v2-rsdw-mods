@@ -79,22 +79,33 @@ session.
   cropped by brush UV region (`materialStrips`). The fallback is the tinted cap (`bars.tipFromMaterial = false`).
 - **Durability bars:** colour bands: red to 25%, orange to 50%, yellow to 75%, green above.
 
-## Not yet checked in game (do this first, with computer use)
+## Checked in game (2026-11-14, with computer use)
 
-Set the game to borderless windowed so screenshots aren't black.
+Passed:
+- **Vitals bars:** the pointed ends are painted in each bar's own color (no "couldn't paint the bar ends" in the
+  log); spacing stays even with ring shadows off and with icons on rings off; the slimmer height is readable; flat
+  ends show with shaped bars off.
+- **Settings panel:** page 1 has CLOSE + "next", the last page "previous" + CLOSE, tabs that fit have neither; long
+  text wraps (Share tab). Paging by `ROWS - 1` repeats one row across pages on purpose.
+- **Grid lines** go away and come back with "Show grid lines".
+- **Menu shortcuts** can be selected and dragged with the key hints hidden; Ctrl+Z puts them back.
+- **Interaction Prompt** is on screen (the "Collect" prompt over a dropped item).
+- **Empty elements** (today's previews): Experience Progress shows the new plain stand-in with its name.
 
-1. **Vitals bars:**
-   - Do the material-painted ends match the bars? If the log says "couldn't paint the bar ends", UV cropping failed.
-   - Is there spacing with rings off and with shadows off?
-   - Is the slimmer height (`heightScale` 0.68) still readable?
-   - Do flat ends show with shaped bars off?
-2. **Durability colours:** the log line "durability colours hold / are reset by the game" decides if a new approach is
-   needed.
-3. **Settings panel:** previous / CLOSE / next footer, arrows only when there's more, long text wrapping.
-4. **Grid lines:** do they come back when "Show grid lines" is switched on again?
-5. **Menu shortcuts:** can they be clicked and dragged with the key hints hidden (`bars.hideKeyHints`)?
-6. **Interaction Prompt:** the chest / item tooltip is back on screen. It had been dragged off; the old layout is in
-   `layouts/default.lua.bak`.
+Found:
+1. **Durability colors need a new approach:** the log says "durability colors are reset by the game" (239 bars).
+2. **The notice queue's stand-in** (Achievement Level Up Skill Unlock) is narrower than its name: it shows
+   "Achievement Level", with a clipped second line under it. The game's own notice with example text
+   (`editor/preview.lua` NOTICES) didn't show for it.
+3. **Editor clicks near the top right** (over Item Pickups, x ≈ 3940 of 4040 UI units, y ≈ 450-520) never reached
+   the editor (no "editor click" in the log), while clicks lower on the same side did. Probably a game widget there
+   takes the click first (the Item Pickups column is the likeliest). Not the Mini Map mod: it was disabled in
+   mods.txt that session (`MiniMap : 0`), so it never loaded. PgDn still reaches those elements.
+   - **Mini Map** (a C++ mod, `Mods/MiniMap/dlls/main.dll`, installed with Vortex) draws a map at the top right.
+     The user plans a similar widget in Map Mage, so it isn't being fixed; if it's enabled again, check that its
+     widget doesn't catch editor clicks there too.
+4. In automation, keys and clicks held for under about 0.1 s are sometimes missed (the game polls); people won't
+   notice.
 
 ## Open items and plans
 

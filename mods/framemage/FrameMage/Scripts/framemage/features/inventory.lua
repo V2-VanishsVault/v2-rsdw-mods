@@ -116,9 +116,11 @@ M.WINDOWS = {
     WBP_Panel_Processing_C = { kind = "processing", ownStone = true },
     WBP_Panel_Building_C = { kind = "building", ownStone = true, tabs = true },
     WBP_Panel_LorePopup_C = { kind = "lore popup", ownStone = true, bg = "Image_48" },
-    -- (its contents reach its edges, where our inset frame's lines are: they're pulled in by contentPad)
+    -- (its contents reach its edges, where our inset frame's lines are: they're pulled in by contentPad. The sides
+    -- clear the corner plates, which reach about 20 units past the band: at 12 the send box's ends and its Enter
+    -- key sat under them, seen in the Warrior theme 2026-11-14)
     WBP_OpenedChat_C = { kind = "chat", ownStone = true, bg = "BackgroundImage", content = "VerticalBox_27",
-        fields = { "MessageSendBorder" }, contentPad = { 12, 12, 12, 12 } },
+        fields = { "MessageSendBorder" }, contentPad = { 32, 12, 32, 16 } },
 }
 
 -- The stone on the window: on our own layer if it has one, else on the game's background image; filling it.
