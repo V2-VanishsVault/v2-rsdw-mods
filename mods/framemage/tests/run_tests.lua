@@ -1,7 +1,8 @@
 -- Unit tests for the engine-independent parts. Run from the repo root with Lua 5.4:
 --   lua tests/run_tests.lua
 -- dev/ holds the developer features (the API dump): not in releases, tested here too.
-package.path = "FrameMage/Scripts/?.lua;dev/?.lua;" .. package.path
+-- ../../shared/ holds the Settings panel every mod ships (as Scripts/settingspanel): tested here too.
+package.path = "FrameMage/Scripts/?.lua;dev/?.lua;../../shared/?.lua;" .. package.path
 print = print -- log.lua writes through print
 
 local failures, passes = 0, 0
@@ -1290,6 +1291,12 @@ do -- survival gauges stacked beside the vitals
     local col = Sv.column({ { left = 0, top = 100, right = 300, bottom = 146 }, { left = 0, top = 146, right = 310, bottom = 192 } }, 40, 28)
     check("stacked: a column past the furthest bar", col[1].x == 338 and col[2].x == 338)
     check("stacked: each ring centered on its bar", col[1].y == 103 and col[2].y == 149)
+    local bars3 = { { left = 0, top = 100, right = 300, bottom = 146 }, { left = 0, top = 146, right = 300, bottom = 192 },
+        { left = 0, top = 192, right = 300, bottom = 238 } }
+    local big3 = Sv.column(bars3, 80, 28, 4)
+    eq("big rings: spread to their size", big3[2].y - big3[1].y, 84)
+    check("big rings: the middle one still on the middle bar", math.abs(big3[2].y + 40 - 169) < 1e-6)
+    eq("small rings: level with their bars", Sv.column(bars3, 40, 28, 4)[2].y - Sv.column(bars3, 40, 28, 4)[1].y, 46)
     local tx, ty = Sv.translation(50, 60, 150, 20, 2)
     check("stacked: translation in the widget's own units", tx == 50 and ty == -20)
     eq("Survival gauges choice offered", (function()
@@ -1322,5 +1329,37 @@ do
     local v = Th.sharedValues("wizard", 3)
     check("themes: other mods get the theme and its revision", v["FrameMage.theme"] == "wizard" and v["FrameMage.themeRev"] == 3)
 end
+-- the shared Settings panel --------------------------------------------------------------------------------
+do
+    local Ps = require("framemage.core.panelshared")
+    local O = require("framemage.core.options")
+    local P = require("settingspanel.protocol")
+    local rows = Ps.rows(O.SCHEMA, false)
+    local clean, notes = P.clean({ protocol = 1, mod = "FrameMage", title = "Frame Mage", tabs = O.TABS, rows = rows })
+    check("Frame Mage's rows make a clean schema", clean ~= nil and #notes == 0, notes and notes[1])
+    eq("every Frame Mage row kept", #clean.rows, #rows)
+    local hasOpenKey, hasDev = false, false
+    for _, r in ipairs(rows) do
+        if r.setting == "keys.settings" then hasOpenKey = true end
+        if r.dev then hasDev = true end
+    end
+    check("the panel's own open key isn't a Frame Mage row", not hasOpenKey)
+    check("developer rows only with dev/", not hasDev)
+    local withDev = Ps.rows(O.SCHEMA, true)
+    check("developer rows with dev/", #withDev > #rows)
+    local look = Ps.lookData({ titleArt = "title_line.png", titleSize = { 128, 32 }, ink = { 1, 1, 1 }, selectedInk = { 0, 0, 0 } },
+        function(rel) if rel == "ui/plate_ornament.png" then return nil end return "/T/" .. rel end, "panel_bg_silk.png", 256, "elven")
+    eq("look: the title art", look.titleArt, "/T/ui/title_line.png")
+    eq("look: no ornament art", look.ornamentArt, nil)
+    eq("look: lit lettering is the selected ink", look.ink[1], 0)
+    eq("look: the title in the theme's ink", look.titleInk[1], 1)
+    check("a click on the panel's box", Ps.inBox("10,20,300,400", 100, 100))
+    check("a click beside it", not Ps.inBox("10,20,300,400", 5, 100))
+    check("no box: nothing on it", not Ps.inBox(nil, 5, 5))
+    -- every shipping file can find the panel: Frame Mage's code requires it only through core/panelshared
+    local sp, sf = dofile("../../shared/settingspanel/tests/run_tests.lua")
+    passes, failures = passes + sp, failures + sf
+end
+
 print(string.format("%d passed, %d failed", passes, failures))
 os.exit(failures == 0 and 0 or 1)

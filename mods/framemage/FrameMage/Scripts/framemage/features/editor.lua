@@ -633,6 +633,9 @@ end
 local solo = false -- the Settings panel open on its own (F4 in normal play), without the editor
 
 local function onMouseDown(x, y, button)
+    -- a click on the shared Settings panel is the panel's (its copy may live in another mod: the click reaches the
+    -- editor's catcher too)
+    if require("framemage.core.panelshared").contains(x, y) then return end
     if solo then
         if button == "LeftMouseButton" then settingsPanel.onDown(x, y) end
         return
@@ -746,6 +749,7 @@ local function open()
     refresh()
     -- the overlay canvas needs one paint before anything can be measured: bars appear a moment after opening
     ctx.sched.later(120, "editor.handlesFirst", refreshHandles)
+    require("framemage.core.panelshared").setEditorOpen(true)
     log.info("editor on")
 end
 
@@ -766,6 +770,7 @@ local function close(save)
     samples.save()
     setBanner("")
     active = false
+    require("framemage.core.panelshared").setEditorOpen(false)
     log.info("editor off")
 end
 
@@ -842,11 +847,15 @@ function M.init(c)
         if solo then closeSolo(true) else refresh() end
     end)
     mouse.init(c, { down = onMouseDown, up = onMouseUp, wheel = function(x, y, d)
+        if require("framemage.core.panelshared").panelBusy() then return end -- (the shared panel pages with it)
         if not settingsPanel.onWheel(x, y, d) then hidden.onWheel(x, y, d) end
     end })
     local K = c.settings.keys
 
-    local function isActive() return active end
+    -- (the shared Settings panel open over the editor: the editor's keys wait, so typing a key into the panel
+    -- doesn't also move an element)
+    local shared = require("framemage.core.panelshared")
+    local function isActive() return active and not shared.panelBusy() end
     -- editor-only key: not even polled while the editor is closed
     local function ed(setting, fn, extraMods, repeats, name)
         c.keys.bind(K[setting], name or setting, fn, extraMods, { setting = setting, when = isActive, repeats = repeats })
@@ -877,10 +886,13 @@ function M.init(c)
     ed("closeEditor", function()
         if settingsPanel.isOpen() then settingsPanel.close() else close(true) end
     end)
-    -- F4 works in normal play too (the panel on its own); Escape closes it there
-    c.keys.bind(K.settings, "settings", toggleSettings, nil, { setting = "settings", when = function() return c.enabled end })
-    c.keys.bind(K.closeEditor, "closeSettings", function() closeSolo() end, nil,
-        { setting = "closeEditor", when = function() return solo end })
+    -- F4 works in normal play too (the panel on its own); Escape closes it there. (The shared panel polls its own
+    -- open key, in whichever mod's copy draws it.)
+    if not shared.enabled() then
+        c.keys.bind(K.settings, "settings", toggleSettings, nil, { setting = "settings", when = function() return c.enabled end })
+        c.keys.bind(K.closeEditor, "closeSettings", function() closeSolo() end, nil,
+            { setting = "closeEditor", when = function() return solo end })
+    end
     ed("showHidden", toggleHiddenPanel)
     ed("undo", function() undo() end)
 

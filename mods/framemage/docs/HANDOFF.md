@@ -44,7 +44,7 @@ session.
 
 - F9: editor
 - F3: hotkey list
-- F4: Settings panel (in the editor)
+- F4: the shared Settings panel (in play or in the editor; its own key, set on its Panel tab)
 - H: hidden-elements panel. A selected element that shows nothing is previewed as the game's own notice where it
   has one (`editor/preview.lua` NOTICES: the queue's collapsed entry, shown with example text and put back), else
   a plain stand-in at the size it last showed at (`editor/samples.lua`, saved in `config/sizes.lua`).
@@ -109,8 +109,8 @@ Found:
    (`editor/preview.lua` NOTICES) didn't show for it.
 3. **Editor clicks near the top right** (over Item Pickups, x ≈ 3940 of 4040 UI units, y ≈ 450-520) never reached
    the editor (no "editor click" in the log), while clicks lower on the same side did. Probably a game widget there
-   takes the click first (the Item Pickups column is the likeliest). Not the Mini Map mod: it was disabled in
-   mods.txt that session (`MiniMap : 0`), so it never loaded. PgDn still reaches those elements.
+   takes the click first (the Item Pickups column is the likeliest). The user says it isn't the Mini Map mod
+   (on for several restarts by 2026-11-14). PgDn still reaches those elements.
    - **Mini Map** (a C++ mod, `Mods/MiniMap/dlls/main.dll`, installed with Vortex) draws a map at the top right.
      The user plans a similar widget in Map Mage, so it isn't being fixed; if it's enabled again, check that its
      widget doesn't catch editor clicks there too.
@@ -119,15 +119,19 @@ Found:
 
 ## Open items and plans
 
-- **Survival vs buffs:** still one element. Needs a fresh Ctrl+F9 dump with buffs showing, then a split or our own
-  replacement.
+- **Survival vs buffs:** staying one element (the user, 2026-11-14: no split needed). The stacked gauges' size is a
+  setting now (Settings, Vitals: "Survival gauge size", `bars.survivalRingSize`, 24 to 96; rings bigger than the spacing of the bars spread apart, centered on them).
 - **Hotbars:** `docs/hotbars-plan.md` covers 2 bars × 2 pages; the spell bar uses Numpad 0-9.
 - **Bags:** handled in Storage Mage (`docs/bags-plan.md`).
 - **Shared Settings panel** (replaces the earlier "Mod Menu replacement" idea; no Mod Menu, user 2026-11-13): one
   panel for all the user's mods, a tab per mod, a copy in every mod, the newest copy draws.
   - Request: `mods/storagemage/docs/settings-panel-handoff.md`.
   - Plan: `docs/settings-panel-plan.md`. The user approved its three recommendations (2026-11-13): no pictures
-    without Frame Mage, Frame Mage's own settings through the shared channels, F4 as the open key. Ready to build.
+    without Frame Mage, Frame Mage's own settings through the shared channels, F4 as the open key.
+  - **Built 2026-11-14** (steps 1–5): `shared/settingspanel/` (98 tests), Frame Mage as a client
+    (`core/panelshared.lua`: its rows, `FrameMage.look`, `FrameMage.editorOpen`; the editor's keys wait while the
+    panel is open), Storage Mage as a client. `settingsPanel = "own"` brings back `editor/settings.lua`. Next: the
+    in-game checks (plan, step 6).
   - Source: `shared/settingspanel/` at the repository's root (built into each mod's zip by `tools/build.sh`).
 - **Storage Mage's tab art (F3):** its art list is in `mods/storagemage/docs/frame-mage-handoff.md` section 2
   (`T_SM_Tab_<Bag>_Normal/_Highlight`, 124x64). Themed copies go in `Art/themes/<theme>/storagemage/`.

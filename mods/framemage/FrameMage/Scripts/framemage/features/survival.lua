@@ -34,13 +34,22 @@ end
 
 -- Pure: where each gauge's ring (ringH tall on screen) goes beside the bars' rows (their rects, in order): a
 -- column `gap` to the right of the furthest bar, each ring centered on its own bar. { { x, y }, ... }. Unit-tested.
-function M.column(rows, ringH, gap)
+-- Rings bigger than the bars' spacing (the user sets their size, and may move them anywhere) spread apart instead,
+-- `space` between them, the column still centered on the bars.
+function M.column(rows, ringH, gap, space)
     local right = rows[1].right
     for _, r in ipairs(rows) do right = math.max(right, r.right) end
-    local out = {}
-    for i, r in ipairs(rows) do
-        out[i] = { x = right + gap, y = (r.top + r.bottom) / 2 - ringH / 2 }
+    local centers = {}
+    for i, r in ipairs(rows) do centers[i] = (r.top + r.bottom) / 2 end
+    local n = #rows
+    local pitch = n > 1 and (centers[n] - centers[1]) / (n - 1) or 0
+    local want = ringH + (space or 4)
+    if n > 1 and want > pitch then
+        local mid = (centers[1] + centers[n]) / 2
+        for i = 1, n do centers[i] = mid + (i - (n + 1) / 2) * want end
     end
+    local out = {}
+    for i = 1, n do out[i] = { x = right + gap, y = centers[i] - ringH / 2 } end
     return out
 end
 
@@ -173,7 +182,7 @@ local function stackOne(up, vitals, S)
     local s = (S.survivalRingSize or 40) / gh
     local targets
     if rows and #rows >= #gauges then
-        targets = M.column(rows, gh * s, S.survivalGap or 28)
+        targets = M.column(rows, gh * s, S.survivalGap or 28, S.survivalRingSpace or 4)
     else
         targets = M.stack(V, gw, gh, #gauges, S.survivalGap or 28, S.survivalMaxScale or 1)
     end

@@ -59,6 +59,9 @@ M.SCHEMA = {
     { tab = "vitals", key = "SurvivalLayout", type = "choice", label = "Survival gauges", setting = "bars.survivalLayout",
         options = { "row", "stacked" }, labels = { row = "Standard", stacked = "Stacked" },
         tooltip = "Stacked: water, food and exhaustion in a column beside the vital bars, each level with its bar, and the buffs in a row after them." },
+    { tab = "vitals", key = "SurvivalSize", type = "number", label = "Survival gauge size", setting = "bars.survivalRingSize",
+        min = 24, max = 96, step = 4, suffix = " px",
+        tooltip = "How big the water, food and exhaustion gauges are when they're stacked. Bigger than the bars' spacing, they spread apart (move them anywhere in the editor)." },
     { tab = "vitals", key = "BarBadges", type = "toggle", label = "Icons on rings", setting = "bars.badges" },
     { tab = "vitals", key = "RingShadow", type = "toggle", label = "Ring shadows", setting = "bars.ringShadow" },
 

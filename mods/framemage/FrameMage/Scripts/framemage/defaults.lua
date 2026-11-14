@@ -5,6 +5,9 @@ return {
     logLevel = "info", -- debug | info | warn | error
 
     -- Turn a feature off to isolate a problem (e.g. a crash). Removed/false features never load.
+    -- the Settings panel: "shared" (the one every Mage mod shares, with a tab per mod) or "own" (Frame Mage's own)
+    settingsPanel = "shared",
+
     features = { layout = true, art = true, materials = true, grid = true, editor = true, inspector = true,
         share = true, ding = true, celebrate = true, replace = true },
 
@@ -106,7 +109,7 @@ return {
         survivalLayout = "row", -- "row": the game's; "stacked": water / food / exhaustion in a column beside the vitals
         survivalGap = 28, -- (stacked) space between the bars' points and the gauges
         survivalBuffGap = 14, -- (stacked) space between the gauges' values and the buffs
-        survivalRingSize = 40, -- (stacked) each gauge's ring, a fixed size (UI units)
+        survivalRingSize = 40, -- (stacked) each gauge's ring, a fixed size (UI units; Settings, Vitals: 24 to 96; bigger than the spacing of the bars, they spread apart)
         survivalMaxScale = 1, -- (stacked) the gauges never grow beyond their own size
         survivalTextScale = 1.35,
         survivalShrinkBuffs = false, -- (stacked) shrink the buffs to the gauges' ring size (their numbers get hard to read)

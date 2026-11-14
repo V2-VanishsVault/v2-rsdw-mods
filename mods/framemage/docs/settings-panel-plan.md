@@ -1,5 +1,10 @@
 # Shared Settings panel: implementation plan
 
+**Status (2026-11-14): steps 1–5 built** (`shared/settingspanel/`, Frame Mage through `core/panelshared.lua`, Storage
+Mage through `storagemage/panelclient.lua`, both deploy scripts link it). Differences from the plan below: the panel
+places every part at a computed position on one canvas (no measuring of the game's layout), pages instead of
+scrolling, and its open key lives on its own "Panel" tab. Step 6 (checks in game) is next.
+
 This plan answers Storage Mage's handoff, `StorageMage/docs/settings-panel-handoff.md` (2026-11-13). The user's
 decisions from the handoff hold:
 

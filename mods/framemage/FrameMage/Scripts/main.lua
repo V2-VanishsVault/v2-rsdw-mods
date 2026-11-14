@@ -103,6 +103,11 @@ local function start(name, kind)
     end
 end
 
+-- The Settings panel every Mage mod shares (Scripts/settingspanel): Frame Mage's tab in it, and its look.
+-- (Started before the features: the editor asks whether it's on.)
+-- settingsPanel = "own" keeps Frame Mage's own panel instead (editor/settings.lua).
+if ctx.settings.settingsPanel ~= "own" then require("framemage.core.panelshared").start(ctx) end
+
 for _, name in ipairs(FEATURES) do start(name, "feature") end
 
 -- Developer features: only in a development install (the dev folder linked in by tools\deploy.ps1 -Link).
@@ -115,6 +120,7 @@ if devList then
         ctx.dev = true
         require("framemage.core.options").showDev = true -- the Settings panel shows developer rows too
         for _, name in ipairs(names) do start(name, "developer feature") end
+        require("framemage.core.panelshared").refreshRows() -- (with the developer rows now)
     else
         log.error("dev/features.lua couldn't be read: %s", tostring(names))
     end

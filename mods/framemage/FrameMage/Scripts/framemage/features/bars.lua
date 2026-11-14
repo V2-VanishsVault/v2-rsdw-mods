@@ -204,8 +204,13 @@ local function unwrapIcon(icon)
     local okI, iconName = pcall(W.name, icon)
     local row = W.parent(icon)
     local holder = row and barHolderAfter(row, icon)
-    local box = holder and ringBoxIn(holder)
-    if box then pcall(function() box:RemoveFromParent() end) end
+    -- every ring of ours in the bar (more than one could be left from a rebuild: one left behind showed the stamina
+    -- ring's Agility icon under the game's own once the rings were switched off)
+    for _ = 1, 4 do
+        local box = holder and ringBoxIn(holder)
+        if not box then break end
+        pcall(function() box:RemoveFromParent() end)
+    end
     pcall(function() icon:SetRenderOpacity(1) end)
     if okI then
         showGameIcon(icon)
@@ -682,12 +687,33 @@ local function addOutline(barWidget)
     local slot = fillPanel:AddChildToOverlay(line)
     slot:SetHorizontalAlignment(0)
     slot:SetVerticalAlignment(0)
+    -- with the ring icons off nothing covers the start: close it with the flat end's gold line, mirrored
+    if not badgesOn() then
+        made = made + 1
+        local edge = stretchedImage(tree, art, owner, M.endArt(ctx.settings.bars.style, false).outline,
+            OUTLINE_PREFIX .. "Start_" .. made)
+        if edge then
+            local box = StaticConstructObject(StaticFindObject("/Script/UMG.SizeBox"), tree, FName(OUTLINE_PREFIX .. "StartBox_" .. made))
+            box:SetWidthOverride(M.endWidth(ctx.settings.bars, false))
+            box:SetContent(edge)
+            pcall(function() edge:SetRenderScale({ X = -1, Y = 1 }) end)
+            pcall(function() box:SetVisibility(3) end)
+            local es = fillPanel:AddChildToOverlay(box)
+            es:SetHorizontalAlignment(1) -- left
+            es:SetVerticalAlignment(0)
+        end
+    end
 end
 
 local function removeOutline(barWidget)
     local img, fillPanel = parts(barWidget)
-    local line = img and fillPanel and childNamed(fillPanel, M.isOutline)
-    if line then pcall(function() line:RemoveFromParent() end) end
+    if not (img and fillPanel) then return end
+    -- the edge along the body and, with the ring icons off, the one closing its start
+    for _ = 1, 3 do
+        local line = childNamed(fillPanel, M.isOutline)
+        if not line then break end
+        pcall(function() line:RemoveFromParent() end)
+    end
 end
 
 local function unshape(barWidget)

@@ -8,3 +8,5 @@ FrameMage/config/settings.lua
 __pycache__/
 luac.out
 FrameMage/config/sizes.lua
+FrameMage/Scripts/settingspanel
+FrameMage/config/settings.defaults.lua

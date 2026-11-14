@@ -96,6 +96,30 @@ foreach ($dir in "Scripts", "Art") {
     }
 }
 
+# The Settings panel every Mage mod shares (shared\settingspanel at the repository's root) runs as
+# Scripts\settingspanel. -Link: a junction inside this repo's Scripts folder (Scripts\ is linked into the game; git
+# ignores the junction). A copy install gets its *.lua files, as a release zip has them (tools/build.sh).
+$panelRepo = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\shared\settingspanel")).Path
+$panelIn = Join-Path (Join-Path $src "Scripts") "settingspanel"
+if ($Link) {
+    if ((Test-Junction $panelIn) -and ((Get-Item $panelIn -Force).Target -contains $panelRepo)) {
+        Write-Host "settingspanel already linked"
+    } else {
+        if ((Test-Path $panelIn) -and -not (Test-Junction $panelIn)) {
+            throw "$panelIn is a real folder; the shared panel's source is $panelRepo. Move it away first."
+        }
+        Remove-Folder $panelIn
+        New-Item -ItemType Junction -Path $panelIn -Target $panelRepo | Out-Null
+        Write-Host "Scripts\settingspanel -> $panelRepo (junction: the shared Settings panel)"
+    }
+} else {
+    $panelGame = Join-Path (Join-Path $dst "Scripts") "settingspanel"
+    Remove-Folder $panelGame
+    New-Item -ItemType Directory -Force $panelGame | Out-Null
+    Copy-Item (Join-Path $panelRepo "*.lua") $panelGame
+    Write-Host "Scripts\settingspanel: the shared Settings panel copied"
+}
+
 # Developer features (the API dump) live in ..\dev, never in releases. -Link links them in as Mods\FrameMage\dev;
 # a copy install is what players get, so it has none (an old link is removed).
 $devRepo = (Resolve-Path (Join-Path $PSScriptRoot "..\dev")).Path

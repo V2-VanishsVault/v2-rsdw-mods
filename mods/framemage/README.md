@@ -27,10 +27,18 @@ Look for `[FrameMage]` lines in `ue4ss/UE4SS.log`. To isolate a crash, set a fea
 
 ## Settings
 
-Press **F4** while the editor is open (F9) for Frame Mage's own Settings panel, drawn in the theme: tabs for Look,
-Vitals, Editor, Celebrations, Keys and Layouts. Click a toggle to flip it; click the left or right half of a value to
-step it back or forward; click a key and press the new one to rebind it (Esc cancels). Everything is saved to
-`config/settings.lua`, which you can also edit by hand (restart to apply). The rows come from `core/options.lua`.
+Press **F4** (in play or in the editor) for the Settings panel every Mage mod shares, drawn in the theme: a tab for
+each installed Mage mod (Frame Mage, Storage Mage...) and Frame Mage's own tabs under its: Look, Vitals, Editor,
+Celebrations, Keys and Share. Click a toggle to flip it; click the left or right half of a value to step it back or
+forward, or the value itself for a list; click a key and press the new one to rebind it (Esc cancels). The wheel or
+the arrows at the bottom page through a long tab; drag the title bar to move it; Esc or F4 closes it. The panel's own
+key is on its Panel tab. Everything is saved to `config/settings.lua`, which you can also edit by hand (restart to
+apply). The rows come from `core/options.lua`.
+
+The panel's code is `shared/settingspanel/` at the repository's root, shipped in every Mage mod as
+`Scripts/settingspanel/` (the newest copy draws; Frame Mage takes part through `core/panelshared.lua`, like any
+other mod). `settingsPanel = "own"` in `config/settings.lua` brings back Frame Mage's earlier panel
+(`editor/settings.lua`).
 
 ## Celebrations (replacing the game's widgets)
 
