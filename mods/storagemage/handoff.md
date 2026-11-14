@@ -91,6 +91,9 @@ Essence 8. Crafted bags appear when carried.
 
 ## Next steps
 
+0. ~~Mace and shield swap~~: it was Frame Mage's HUD copy of the hotbar taking the hotbar keys too (fixed there,
+   2026-11-14). **Next for Storage Mage:** drag and drop inside the Tool Belt (clicking a belt item starts the game's
+   own click-to-move, which switches to the Items page and drops nothing): Storage Mage would do the drag itself.
 1. ~~Run the pickup routing, sort and take-out test~~: passed, steps 2–6 (2026-11-13 and 11-14; README).
 2. The user decides how items get out of bags beyond the take-out key (chests, dropping, trading; tools without
    Frame Mage's hotbar page 2).

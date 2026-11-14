@@ -468,6 +468,18 @@ do
     check("inventoryui.findNav picks the visible navigation", ok and pick and pick.w == nav)
 end
 
+-- the take-out key, the other way: an Items-page item into its bag ---------------------------------------------------
+do
+    local R = require("storagemage.routing")
+    local snap = { [5] = { key = "Axe", count = 1, max = 1, bag = "toolBelt" }, [6] = { key = "Log", count = 3, max = 50 } }
+    local bags = { toolBelt = { first = 100, last = 115 } }
+    local m = R.putInStep(snap, 5, bags, { toolBelt = true })
+    check("put in: a tool goes to its bag", m and m.from == 5 and m.to >= 100 and m.to <= 115 and m.amount == 1)
+    eq("put in: not a bag item", select(2, R.putInStep(snap, 6, bags, { toolBelt = true })), "nobag")
+    eq("put in: its bag not in use", select(2, R.putInStep(snap, 5, bags, {})), "inactive")
+    eq("put in: nothing there", select(2, R.putInStep(snap, 7, bags, { toolBelt = true })), "empty")
+end
+
 -- the shared Settings panel: Storage Mage's tab -----------------------------------------------------------------
 do
     local Pc = require("storagemage.panelclient")

@@ -222,22 +222,51 @@ local function sortBags()
 end
 
 -- ---- take-out key ---------------------------------------------------------------------------------------------
--- The bag slot under the mouse, from the slot widgets' bIsMousedOver and SlotPayload (seen working 2026-11-13).
-local function hoveredBagSlot(nav)
+-- The key works both ways: over a bag slot it takes the item out to the Items page; over an Items-page slot it puts
+-- the item into the bag it belongs in (user, 2026-11-14: an item taken out had no way back but sorting everything).
+-- The slot under the mouse, from the slot widgets' bIsMousedOver and SlotPayload (seen working 2026-11-13);
+-- wantBag: a bag page's slots, else the Items page's.
+local function hoveredSlot(nav, wantBag)
     local found
+    local items = L.itemsRange()
     try(function() O.get(nav, "InventoryBodies"):ForEach(function(_, e)
         if found then return end
         local body = e:get()
-        if not L.bagOfSlotType(O.get(body, "SlotType")) then return end
+        local isBag = L.bagOfSlotType(O.get(body, "SlotType")) ~= nil
+        if isBag ~= wantBag then return end
         try(function() body.InventorySlots:ForEach(function(_, se)
             local s = se:get()
             if not found and O.valid(s) and O.get(s, "bIsMousedOver") == true then
                 local p = O.get(s, "SlotPayload")
-                found = L.absoluteSlot(O.get(p, "OwningInventoryType"), O.get(p, "InventoryIndex"))
+                local abs = L.absoluteSlot(O.get(p, "OwningInventoryType"), O.get(p, "InventoryIndex"))
+                if wantBag or (abs and abs >= items.first and abs <= items.last) then found = abs end
             end
         end) end)
     end) end)
     return found
+end
+
+local function putIn(pc, mode, slot)
+    local name = try(function() return pc:GetFullName() end)
+    local _, active, bags = activeBags()
+    local moved, why = 0, nil
+    enqueue(name, {
+        label = "put in", viaServer = mode == "server",
+        -- (step by step until the slot is empty: a stack can need more than one bag slot)
+        step = function(snap)
+            local m, reason = R.putInStep(snap, slot, bags, active)
+            why = reason
+            return m, reason
+        end,
+        moved = function() moved = moved + 1 end,
+        done = function(reason)
+            if moved > 0 then return end
+            if why == "nobag" then ctx.toast.show("That doesn't go in a bag")
+            elseif why == "inactive" then ctx.toast.show("Its bag isn't in use yet")
+            elseif why == "full" or reason == "full" then ctx.toast.show("That bag is full")
+            elseif reason == "failed" then ctx.toast.show("Couldn't put that away (see dumps/moves.txt)") end
+        end,
+    })
 end
 
 local function takeOut()
@@ -245,8 +274,13 @@ local function takeOut()
     local pc = O.localController()
     local pick = INVUI.findNav()
     if not (mode and pc and pick) then return end
-    local slot = hoveredBagSlot(pick.w)
-    if not slot then return end -- not over a bag slot: the key does nothing
+    local slot = hoveredSlot(pick.w, true)
+    if not slot then
+        -- over an Items-page slot: into its bag instead
+        local item = hoveredSlot(pick.w, false)
+        if item then putIn(pc, mode, item) end
+        return -- (over nothing of ours: the key does nothing)
+    end
     local name = try(function() return pc:GetFullName() end)
     local moved = 0
     enqueue(name, {

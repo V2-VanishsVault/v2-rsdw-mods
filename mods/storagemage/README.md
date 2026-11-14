@@ -39,7 +39,7 @@ yes to replacing files, then start the server. The zip holds code and empty data
 |---|---|
 | Numpad − (`keys.dumpInventory = "Subtract"`) | Developer (`dev/`, feature `probe`): the player's inventories, pages, items and their tags → `Mods\StorageMage\dumps\inventory.txt`; every loaded item definition → `dumps\items.txt` |
 | Numpad / (`keys.sortBags = "Divide"`) | Sort: everything on the Items page that belongs in a bag goes into it (the hotbar is never touched) |
-| T (`keys.takeOut = "T"`) | With the inventory open: the bag item under the mouse goes to the Items page |
+| T (`keys.takeOut = "T"`) | With the inventory open: the bag item under the mouse goes to the Items page; an Items-page item under the mouse goes into its bag |
 | Numpad + (`keys.hoverProbe = "Add"`) | Developer (`dev/`, feature `dragprobe`, off): the slot under the mouse → `dumps\drag.txt` |
 
 Items that belong in a bag go into it when you pick them up, take them from a chest, or craft them

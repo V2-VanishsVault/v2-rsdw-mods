@@ -93,6 +93,18 @@ function M.routeStep(snap, items, bagRange, key, amount)
     return nil, "none"
 end
 
+-- The take-out key on an Items-page slot: everything in it into the bag it belongs in (if that bag is active).
+-- Returns move, or nil and "nobag" (it belongs in no bag) / "inactive" / "full".
+function M.putInStep(snap, from, bags, active)
+    local s = snap[from]
+    if not s then return nil, "empty" end
+    if not s.bag then return nil, "nobag" end
+    if not (active[s.bag] and bags[s.bag]) then return nil, "inactive" end
+    local m = moveFrom(snap, from, s.count, bags[s.bag])
+    if m then return m end
+    return nil, "full"
+end
+
 -- The take-out key: everything in bag slot `from` to the Items page. Returns move, or nil and "empty" / "full".
 function M.takeOutStep(snap, from, items)
     local s = snap[from]

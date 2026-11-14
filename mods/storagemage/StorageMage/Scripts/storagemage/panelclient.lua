@@ -13,8 +13,8 @@ M.ROWS = {
         applies = "restart", owner = "server" },
     { tab = "bags", type = "key", setting = "keys.sortBags", label = "Sort into bags",
         tooltip = "Everything on the Items page that belongs in a bag goes into it (the hotbar is never touched)." },
-    { tab = "bags", type = "key", setting = "keys.takeOut", label = "Take out of a bag",
-        tooltip = "With the inventory open: the bag item under the mouse goes to the Items page." },
+    { tab = "bags", type = "key", setting = "keys.takeOut", label = "Transfer",
+        tooltip = "With the inventory open: the bag item under the mouse goes to the Items page, and an Items-page item under the mouse goes back into its bag." },
 }
 
 -- Pure: a dot path into a table.

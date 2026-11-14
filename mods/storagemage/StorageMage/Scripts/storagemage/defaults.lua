@@ -25,7 +25,7 @@ return {
 
     keys = {
         sortBags = "Divide", -- Numpad /: put everything on the Items page that belongs in a bag into it
-        takeOut = "T", -- with the inventory open: the bag item under the mouse goes to the Items page
+        takeOut = "T", -- with the inventory open: the bag item under the mouse to the Items page, or an Items-page item into its bag
         dumpInventory = "Subtract", -- developer (Numpad -): the player's inventories -> dumps/inventory.txt
         hoverProbe = "Add", -- developer (Numpad +, feature dragprobe): the slot under the mouse -> dumps/drag.txt
     },
