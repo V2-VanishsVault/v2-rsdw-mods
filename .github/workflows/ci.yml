@@ -13,7 +13,7 @@ jobs:
     outputs:
       mods: ${{ steps.pick.outputs.mods }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - id: pick
@@ -45,7 +45,7 @@ jobs:
       matrix:
         mod: ${{ fromJson(needs.changes.outputs.mods) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Lua 5.4
         run: sudo apt-get update -q && sudo apt-get install -yq lua5.4
       - name: Syntax check
