@@ -5,7 +5,8 @@
 #
 # <mod> is a folder under mods/ (framemage, storagemage...). The mod's game folder is the one directory inside it
 # that holds Scripts/main.lua (mods/framemage/FrameMage). The zip holds:
-#   - that folder's Scripts/ and Art/ (never config/, dumps/, layouts/, saves/ or share/: those are the player's)
+#   - that folder's Scripts/ and Art/ (never config/, dumps/, layouts/, saves/ or share/: those are the player's,
+#     and never the mod's dev/ folder: developer features stay out of releases)
 #   - empty config/ dumps/ layouts/ saves/ share/ folders the mod expects, and enabled.txt
 #   - shared/settingspanel/ copied in as Scripts/settingspanel/ (when it has code)
 #   - VERSION (the version given, else "dev")
