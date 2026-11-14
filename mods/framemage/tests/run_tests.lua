@@ -1269,6 +1269,12 @@ do -- status effects as gauges
     check("status: a row's shift puts its middle on the gauge (in list units)", sx2 == -25 and sy2 == 40)
     local tops = St.stackTops(100, { 64, 40, 40 }, 4, false)
     check("status: rows stacked by their own height", tops[1] == 100 and tops[2] == 168 and tops[3] == 212)
+    eq("list edge: top stays", St.stableEdge({ top = 100, bottom = 200, n = 2 }, { top = 100, bottom = 150, n = 1 }), "top")
+    eq("list edge: bottom stays", St.stableEdge({ top = 100, bottom = 200, n = 2 }, { top = 150, bottom = 200, n = 1 }), "bottom")
+    eq("list edge: same count tells nothing", St.stableEdge({ top = 100, bottom = 200, n = 2 }, { top = 150, bottom = 200, n = 2 }), nil)
+    eq("anchor: a bottom-pinned list's last row top", St.anchorY("bottom", 100, 200, 50), 150)
+    eq("anchor: two rows or one, the same place", St.anchorY("bottom", 150, 200, 50), 150)
+    eq("anchor: a top-pinned list's top", St.anchorY("top", 100, 200, 50), 100)
     local utops = St.stackTops(100, { 64, 40 }, 4, true)
     check("status: growing up, the first stays and the next sits above it", utops[1] == 100 and utops[2] == 56)
     local _, uy = St.slotAt(10, 100, 3, 64, 6, true)
@@ -1329,6 +1335,39 @@ do
     local v = Th.sharedValues("wizard", 3)
     check("themes: other mods get the theme and its revision", v["FrameMage.theme"] == "wizard" and v["FrameMage.themeRev"] == 3)
 end
+-- every feature main.lua starts can be switched off in settings.lua (it has a default) ----------------------------
+do
+    local src = io.open("FrameMage/Scripts/main.lua"):read("a")
+    local list = src:match("local FEATURES = (%b{})")
+    local defaultsT = require("framemage.defaults")
+    for name in list:gmatch('"([%w_]+)"') do
+        check("feature has a default switch: " .. name, defaultsT.features[name] ~= nil)
+    end
+    local devList = dofile("dev/features.lua")
+    for _, name in ipairs(devList) do
+        check("developer feature has a default switch: " .. name, defaultsT.features[name] ~= nil)
+    end
+end
+
+-- example entries in empty lists (editor/examples.lua) ------------------------------------------------------------
+do
+    local Ex = require("framemage.editor.examples")
+    local col = Ex.place(10, 20, 100, 30, 2, true, 4)
+    eq("examples: a column", col[2].top, 54)
+    eq("examples: same left", col[2].left, 10)
+    local row = Ex.place(10, 20, 100, 30, 2, false, 4)
+    eq("examples: a row", row[2].left, 114)
+    local u = Ex.union(col)
+    check("examples: the box round them", u.top == 20 and u.bottom == 84 and u.right == 110)
+    eq("examples: none, no box", Ex.union({}), nil)
+    local Rc = require("framemage.editor.recipes")
+    local p = Rc.part("Fireball", "/Game/UI/T_Fire.T_Fire", 32, 32, 3)
+    check("recipe part: text, picture, size, visibility", p.text == "Fireball" and p.res and p.size[1] == 32 and p.vis == 3)
+    eq("recipe part: empty text left out", Rc.part("", nil, 0, 0, nil).text, nil)
+    check("a recipe with text or a picture is useful", Rc.useful({ parts = { A = { text = "x" } } }))
+    check("an empty recipe isn't", not Rc.useful({ parts = { A = { vis = 3 } } }))
+end
+
 -- the shared Settings panel --------------------------------------------------------------------------------
 do
     local Ps = require("framemage.core.panelshared")

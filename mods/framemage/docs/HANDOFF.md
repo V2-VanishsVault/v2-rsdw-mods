@@ -119,6 +119,15 @@ Found:
 
 ## Open items and plans
 
+- **Fixed 2026-11-14:** the HUD hotbar copy (`inventory.separateHotbar`) bound the hotbar keys too, so every key was
+  used twice (key 2 brought out the mace and shield, then put the mace away): the copy's key actions are emptied and
+  its input mapping dropped when it's made. Status gauges: the column anchors to the edge of the game's list that
+  stays still (its bottom). Every feature has a default switch now (four couldn't be switched off).
+- **Editor examples** (`editor/examples.lua`, `editor/recipes.lua`): an empty list or notification queue in the
+  selected element gets real entries of its own class, looking like the real ones Frame Mage saw while you played
+  (`config/examples.lua`). Experience Progress and Floating Experience are learned; spell timers weren't seen yet.
+  Not yet confirmed on screen. Elements whose entries draw nothing keep their stand-in.
+
 - **Survival vs buffs:** staying one element (the user, 2026-11-14: no split needed). The stacked gauges' size is a
   setting now (Settings, Vitals: "Survival gauge size", `bars.survivalRingSize`, 24 to 96; rings bigger than the spacing of the bars spread apart, centered on them).
 - **Hotbars:** `docs/hotbars-plan.md` covers 2 bars × 2 pages; the spell bar uses Numpad 0-9.

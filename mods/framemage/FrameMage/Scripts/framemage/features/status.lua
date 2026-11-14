@@ -61,6 +61,7 @@ local function image(tree, name, tex, size)
 end
 
 local made = 0
+local edge, lastSight -- which edge of the game's effect list stays put ("top" / "bottom"), and the last sighting
 
 -- The theme's rim round every gauge (ui/gauge_rim.png): the survival gauges, the buffs and the status gauges.
 local rims = {} -- fullName of the gauge -> { img, size }
@@ -456,6 +457,24 @@ end
 
 -- Pure: each row's top, stacked from y0 with `gap` between, each heights[i] tall: down from y0, or (up) with the
 -- first row's top at y0 and the rest above it. Unit-tested.
+-- Pure: which edge of the game's list stays put as effects come and go, from two sightings (top, bottom, rows) of
+-- different row counts: "top", "bottom", or nil when it can't be told. Unit-tested.
+function M.stableEdge(a, b)
+    if not (a and b) or a.n == b.n then return nil end
+    local dTop, dBottom = math.abs(a.top - b.top), math.abs(a.bottom - b.bottom)
+    if dTop < 1 and dBottom >= 1 then return "top" end
+    if dBottom < 1 and dTop >= 1 then return "bottom" end
+    return nil
+end
+
+-- Pure: the y the gauges' column starts from: the list's top when its top stays put; when its bottom does (the game
+-- pins it above the hotbar, so its top drops as effects end), where a one-row list's top would be, so the column
+-- doesn't drop with it. Unit-tested.
+function M.anchorY(edge, top, bottom, firstRowH)
+    if edge == "bottom" then return bottom - (firstRowH or 0) end
+    return top
+end
+
 function M.stackTops(y0, heights, gap, up)
     local tops = {}
     if not up then
@@ -701,6 +720,13 @@ local function tick()
     if not lr then return end
     local x0, y0 = lr.left, lr.top
     for _, row in ipairs(rows) do row.d = readRow(row.w); row.timed = row.d.timed == true end
+    -- which edge of the game's list stays put (found the first time the number of effects changes)
+    local sight = { top = lr.top, bottom = lr.bottom, n = #rows }
+    if lastSight and lastSight.n ~= sight.n and not edge then
+        edge = M.stableEdge(lastSight, sight)
+        if edge then log.info("status: the game's effect list keeps its %s edge still", edge) end
+    end
+    lastSight = sight
     -- where the game has each row (in its own order, stacked down the list): the rows stay invisible but still
     -- catch the mouse and show the effect's tooltip, so each is moved under its own gauge below
     local lay = measure.layoutRect(lv or list)
@@ -714,6 +740,7 @@ local function tick()
     for i, span in ipairs(M.rowTops(lr.top, sc, sizes)) do
         rows[i].natTop, rows[i].natH, rows[i].natW = span.top, span.h, span.w
     end
+    y0 = M.anchorY(edge, lr.top, lr.bottom, rows[#rows] and rows[#rows].natH)
     rows = M.ordered(rows, S.statusOrder or "timed")
     local up = S.statusGrow == "up"
     -- each row as tall as what it shows (a gauge, or the smaller icon ring), stacked with the gap between

@@ -8,8 +8,11 @@ return {
     -- the Settings panel: "shared" (the one every Mage mod shares, with a tab per mod) or "own" (Frame Mage's own)
     settingsPanel = "shared",
 
-    features = { layout = true, art = true, materials = true, grid = true, editor = true, inspector = true,
-        share = true, ding = true, celebrate = true, replace = true },
+    -- every feature, so any can be switched off in settings.lua (one missing here was dropped as unknown on the next
+    -- save); the developer features (dev/) too
+    features = { layout = true, art = true, materials = true, grid = true, editor = true, share = true, ding = true,
+        celebrate = true, replace = true, bars = true, survival = true, status = true, inventory = true,
+        inspector = true, devkeys = true, apidump = true },
 
     -- Frame Mage's own widgets shown instead of the game's (features/replace.lua)
     replace = {

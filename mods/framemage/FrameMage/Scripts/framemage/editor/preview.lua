@@ -15,6 +15,7 @@
 -- Every change is recorded and undone by finish(); tick() re-applies them if the game hides things again.
 local W = require("framemage.core.widgets")
 local names = require("framemage.core.names")
+local examples = require("framemage.editor.examples") -- real entries in empty lists (spell timers, effects...)
 
 local M = {}
 
@@ -28,6 +29,8 @@ local PAGE_SECONDS = 2 -- a notice with several kinds of page shows each in turn
 -- (The level-up page is left out: Frame Mage's celebration replaces it.)
 M.NOTICES = {
     WBP_PlayerUpkeepNotification_Item_C = {},
+    WBP_ExperienceProgress_Item_C = {},
+    WBP_FloatingExperience_Item_C = {},
     WBP_QuestAndUnlocks_Item_C = {},
     WBP_EnvAndPlayerStatus_Item_C = { opaque = true },
     WBP_TutorialNotifications_Item_C = { quiet = { "InputEntryWidget" },
@@ -185,11 +188,15 @@ function M.begin(w, ghostOpacity, maxTextBlocks)
         return true
     end, 0, 25)
     for _, r in ipairs(records) do set(r, r.new) end
+    -- empty lists inside it: example entries of their own class, where they sit
+    local okR, at = pcall(require("framemage.core.geometry").rect, w)
+    pcall(examples.show, w, okR and at or nil)
 end
 
--- The box round the notice entries shown (viewport units, via geometry.rect), or nil when none shows.
+-- The box round the notice entries and example entries shown (viewport units, via geometry.rect), or nil when none
+-- shows.
 function M.noticeRect(rectOf)
-    local box
+    local box = examples.rect()
     for _, e in ipairs(entries) do
         local q = not taken(e) and rectOf(e.w)
         if q and q.right > q.left and q.bottom > q.top then
@@ -242,11 +249,14 @@ function M.finish()
     end
     records = {}
     entries = {}
+    examples.clear()
 end
 
 -- Forget handles without touching anything (the world changed; the widgets are gone).
-function M.forget() records = {}; entries = {} end
+function M.forget() records = {}; entries = {}; examples.forget() end
 
 function M.active() return #records > 0 end
+
+function M.init(c) examples.init(c) end
 
 return M

@@ -1012,6 +1012,17 @@ end
 
 local function wbl() return StaticFindObject("/Script/UMG.Default__WidgetBlueprintLibrary") end
 
+-- A copy of the game's hotbar without its key bindings: its key actions emptied and its input mapping dropped.
+-- Returns what was done, for the log.
+function M.unbindHotbarKeys(copy)
+    local done = {}
+    local okA = pcall(function() copy.QuickAccessSlotInputActions:Empty() end)
+    done[#done + 1] = okA and "key actions emptied" or "key actions NOT emptied"
+    local okM = pcall(function() copy.QuickAccessInputMappingContext = nil end)
+    done[#done + 1] = okM and "input mapping dropped" or "input mapping NOT dropped"
+    return table.concat(done, ", ")
+end
+
 -- A second hotbar on the HUD for the window's hotbar `row`: the game's own widget class, made for the same player
 -- and filled by the game, placed where the row is laid out (the window's anchor and position plus the row's place
 -- inside the window).
@@ -1038,6 +1049,12 @@ local function makeCopy(row)
         local copy = wbl():Create(row, row:GetClass(), row:GetOwningPlayer())
         if not W.valid(copy) then error("the game wouldn't make another hotbar") end
         copies[W.fullName(copy)] = true
+        -- only a picture of the hotbar: the game's own still takes the hotbar keys. The class binds them itself
+        -- (QuickAccessSlotInputActions, QuickAccessInputMappingContext), and with two of them every key was used
+        -- twice: key 2 brought out the mace and shield, then put the mace away again (user, 2026-11-14). Emptied
+        -- before it's on screen, where it would bind them.
+        local unbound = M.unbindHotbarKeys(copy)
+        log.info("inventory: the HUD hotbar takes no keys (%s)", unbound)
         local s = canvas:AddChildToCanvas(copy)
         -- anchored at the point the window's anchors start from, so both follow the screen the same way
         s:SetAnchors({ Minimum = { X = a.Minimum.X, Y = a.Minimum.Y }, Maximum = { X = a.Minimum.X, Y = a.Minimum.Y } })

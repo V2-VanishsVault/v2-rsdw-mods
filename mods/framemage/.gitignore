@@ -10,3 +10,4 @@ luac.out
 FrameMage/config/sizes.lua
 FrameMage/Scripts/settingspanel
 FrameMage/config/settings.defaults.lua
+FrameMage/config/examples.lua
