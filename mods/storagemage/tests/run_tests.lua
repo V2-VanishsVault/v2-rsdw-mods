@@ -407,5 +407,25 @@ do
     if not hadDefaults then os.remove(dir .. "/config/settings.defaults.lua") end
 end
 
+-- uidump.findNav works with the uidump feature switched off (belttab and bagmoves call it; its init never runs).
+-- Regression: 2026-11-13, "attempt to index a nil value (upvalue 'O')" left the Tool Belt without its tab.
+do
+    package.loaded["storagemage.features.uidump"] = nil
+    local UD = require("storagemage.features.uidump")
+    local savedFind = FindAllOf
+    local nav = {
+        IsValid = function() return true end,
+        GetFullName = function() return "WBP_Inventory_VerticalNavigation_C /Game/UI.Inventory.Nav" end,
+        GetOuter = function(self) return self end,
+        IsVisible = function() return true end,
+        IsInViewport = function() return true end,
+    }
+    FindAllOf = function(cls) if cls == "WBP_Inventory_VerticalNavigation_C" then return { nav } end end
+    local ok, pick = pcall(UD.findNav)
+    FindAllOf = savedFind
+    check("uidump.findNav runs without uidump's init", ok, tostring(pick))
+    check("uidump.findNav picks the visible navigation", ok and pick and pick.w == nav)
+end
+
 print(string.format("%d passed, %d failed", passes, failures))
 os.exit(failures == 0 and 0 or 1)

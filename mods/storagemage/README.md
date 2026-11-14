@@ -134,6 +134,12 @@ The developer keys Numpad / and Numpad * are gone; Numpad / is now the sort key.
    message says the Tool Belt is full.
 7. Quit and send `dumps\moves.txt`, plus what you saw. If anything is missing, restore the backup.
 
+**Steps 2–4 passed 2026-11-13** (local world, after the uidump fix): sort moved the Items-page tool in; T took the
+axe and spade out, and they stayed out; the axe, dropped and picked up again, went back into the Tool Belt within
+a second. **Steps 5 and 6 passed too (2026-11-14):** 20 torches added at once filled the belt's 13 free slots
+(torches don't stack: one per slot) and 7 stayed in the backpack with "Tool Belt is full"; with 3 taken out, one
+torch picked up moved exactly one torch into the belt.
+
 ## Settings
 
 `Mods\StorageMage\config\settings.lua` holds only what you change; `settings.defaults.lua` (rewritten every start)

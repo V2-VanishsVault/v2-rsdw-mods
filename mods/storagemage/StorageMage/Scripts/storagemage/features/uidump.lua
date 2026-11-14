@@ -4,7 +4,10 @@
 -- dumps/ui.txt the first time each screen is seen.
 local M = {}
 
-local ctx, log, O
+local ctx, log
+-- Loaded here, not in init: belttab and bagmoves call M.findNav() even when this feature is switched off (its init
+-- never runs then). Leaving it to init broke the Tool Belt tab and the take-out key on 2026-11-13.
+local O = require("storagemage.core.objects")
 
 local function try(fn, ...)
     local ok, v = pcall(fn, ...)
@@ -194,7 +197,7 @@ local function check()
 end
 
 function M.init(c)
-    ctx, log, O = c, c.log, c.objects
+    ctx, log = c, c.log
     ctx.sched.every(2000, "ui dump", check)
 end
 
