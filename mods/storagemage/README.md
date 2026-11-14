@@ -5,8 +5,12 @@ A sibling of Frame Mage. Storage Mage owns the inventories (it runs on the serve
 UI, such as the bag tabs, in the game's default look. Frame Mage is optional: when it's installed, its themes
 restyle Storage Mage's UI too.
 
-**Status:** scaffold. The mod loads and has one developer tool; bag logic is not built yet.
-Design and the list of in-game tests: [docs/design.md](docs/design.md).
+**Status (2026-11-13):** in development, not released. The seven bag pages are added to every inventory, and the
+Tool Belt works in game: tools go in, survive a save and reload, and show on its own inventory tab. Pickup
+routing, sorting and taking out are built for the Tool Belt but not yet run in game. The other six bags, their
+crafting, workbench access and the carry-weight slider are still to come.
+Design and the list of in-game tests: [docs/design.md](docs/design.md). Where things stand in detail:
+[handoff.md](handoff.md).
 
 ## Install (development)
 
@@ -14,7 +18,7 @@ Design and the list of in-game tests: [docs/design.md](docs/design.md).
 powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Link
 ```
 
-`-Link` junctions `Mods\StorageMage\Scripts` to this repo, so edits load on the next game start. Without `-Link`
+`-Link` junctions `Mods\StorageMage\Scripts` and `Art` to this folder, so edits load on the next game start. Without `-Link`
 the scripts are copied (what players get). `config\`, `dumps\` and `saves\` in the game folder are never
 overwritten. For a dedicated server, pass `-GameDir` with the server's folder.
 
@@ -41,11 +45,13 @@ yes to replacing files, then start the server. The zip holds code and empty data
 Items that belong in a bag go into it when you pick them up, take them from a chest, or craft them
 (`pickupRouting = true`). Only what you gained moves: an item you took out stays out until you sort.
 Every move is logged in `dumps\moves.txt`. For now only the Tool Belt takes part.
+
 ## Bag pages
 
 Storage Mage adds its seven bag pages (fixed layout: `storagemage/layout.lua`) to every player inventory by
-patching the inventory's template at the main menu, so a save loads straight into them. For now the pages accept
-nothing (no item carries their filter tags yet) and nothing shows them on screen. `dumps\pages.txt` reports the
+patching the inventory's template at the main menu, so a save loads straight into them. For now only the Tool Belt
+accepts items (tools carry its filter tag: feature `tags`, `dumps\tags.txt`) and only the Tool Belt has a tab
+(feature `belttab`); the other six pages are there but empty and hidden. `dumps\pages.txt` reports the
 patch and, each world, whether the live inventory has the pages. It refuses, and says why, if the Tool Belt or
 RuneScape Bags mod is installed, or if the game's own pages aren't what it expects.
 
@@ -57,7 +63,7 @@ RuneScape Bags mod is installed, or if the game's own pages aren't what it expec
 3. Wait 2 seconds, then quit. Send `dumps\pages.txt` and `dumps\t1.txt`.
 4. If anything looks wrong (items missing, a crash), restore the backed-up folder with the game closed.
 
-The T1 load timeline (`pagetest`, `dumps\t1.txt`) is off by default since T1 is done. The old T2/T3 and T6/T13
+**Passed 2026-11-11.** The T1 load timeline (`pagetest`, `dumps\t1.txt`) is off by default since T1 is done. The old T2/T3 and T6/T13
 write tests were retired on 2026-11-11.
 
 ## Phase 2 test: tools survive a save and reload in the Tool Belt (T13 with real items)
@@ -131,7 +137,8 @@ The developer keys Numpad / and Numpad * are gone; Numpad / is now the sort key.
 ## Settings
 
 `Mods\StorageMage\config\settings.lua` holds only what you change; `settings.defaults.lua` (rewritten every start)
-lists every setting with its default.
+lists every setting with its default. Later these move into the Settings panel shared by all the Mage mods (a tab
+per mod; plan in `mods/framemage/docs/settings-panel-plan.md`).
 
 ## Tests
 
@@ -143,7 +150,12 @@ Unit tests for the engine-independent code, plus a smoke test that loads `main.l
 
 ## Layout
 
-- `StorageMage/Scripts/main.lua`: entry point; loads `storagemage/features/*`.
+- `StorageMage/Scripts/main.lua`: entry point; loads `storagemage/features/*` (`pages`, `tags`, `belttab`,
+  `bagmoves`, and the developer tools `probe`, `pagetest`, `uidump`, `dragprobe`).
+- `StorageMage/Scripts/storagemage/`: `layout.lua` (the page layout), `filters.lua` (which bag an item belongs
+  in), `routing.lua` (the move planner), `art.lua` (tab art lookup), `defaults.lua` (settings and bag specs).
 - `StorageMage/Scripts/storagemage/core/`: log, sched, events, config, fs, serialize, keys (copied from Frame Mage,
-  same behaviour) and objects (UObject helpers, net role).
+  same behavior), objects (UObject helpers, net role) and toast (on-screen messages).
+- `StorageMage/Art/default/`: the tab icons in the game's look (`python -I tools\draw_tab_art.py` draws them).
 - `tools/usmap_fields.py`: prints a class's fields or an enum's values from the game's `.usmap` type map.
+- Release zips: the monorepo's `tools/build.sh storagemage <version>`, or a tag `storagemage-v<version>`.

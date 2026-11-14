@@ -1,28 +1,34 @@
-# Frame Mage: session handoff (2026-11-08)
+# Frame Mage: session handoff (2026-11-08, updated 2026-11-13)
 
-Paste this into a new session opened in `C:\Users\chris\OneDrive\Developer\FrameMage`.
+Paste this into a new session opened in `C:\Developer\v2-rsdw-mods\mods\framemage`.
 
 ## What this is
 
 Frame Mage is a UI-only UE4SS Lua mod for RuneScape: Dragonwilds (UE 5.6). It lets you move, scale, fade and hide
 HUD elements in an editor, reskins the HUD with themes, and restyles the vitals bars. It's one of a "Mage" family:
 - Frame Mage (UI)
-- Storage Mage (bags and inventory, server-side): `C:\Users\chris\OneDrive\Developer\StorageMage`, its own session
+- Storage Mage (bags and inventory, server-side): `C:\Developer\v2-rsdw-mods\mods\storagemage`, its own session
 - Map Mage, Spell Mage (later)
+
+Both live in the `v2-rsdw-mods` monorepo (`C:\Developer\v2-rsdw-mods`). Its `CLAUDE.md` has the rules for sessions
+working side by side; the root `README.md` covers building (`tools/build.sh`) and releasing (a tag
+`framemage-v<version>`). `shared/settingspanel/` (the shared Settings panel, not written yet) belongs to this
+session.
 
 ## Working rules
 
-- **Tests:** `lua tests/run_tests.lua` (622 pass). In PowerShell, refresh PATH first so `lua` is found.
+- **Tests:** `lua tests/run_tests.lua` (919 pass on 2026-11-13). CI runs them for every push that changes this mod. In PowerShell, refresh PATH first so `lua` is found.
 - **Static check:** `lua-language-server --check FrameMage/Scripts --checklevel=Warning`. About 119 problems is the
   baseline, mostly in the tests.
-- **Deploy:** `tools/deploy.ps1 -Link`. It's already linked (a junction into the game's `ue4ss/Mods/FrameMage`), so
-  script edits are live after a game restart.
+- **Deploy:** `tools/deploy.ps1 -Link`. It's already linked (the game's `ue4ss/Mods/FrameMage/Scripts` is a
+  junction to this folder's `FrameMage/Scripts`, checked 2026-11-13), so script edits are live after a game restart.
 - **Game files:** `C:\Program Files (x86)\Steam\steamapps\common\RSDragonwilds\RSDragonwilds\Binaries\Win64\ue4ss\`
   - log: `UE4SS.log`
   - dumps: `Mods/FrameMage/dumps/` (`widgets.txt`, `textures.txt`, `materials.txt`, `api.txt`)
   - user settings: `Mods/FrameMage/config/settings.lua`
   - layouts: `Mods/FrameMage/layouts/`
-- **Commits:** commit only when asked; nothing is committed since `e8f083f`. End commit messages with
+- **Commits:** commit only when asked, and only this mod's paths (`git add mods/framemage listings/framemage`).
+  The last Frame Mage commit is `a509174` (the move into the monorepo). End commit messages with
   `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - **Python edits:** write patch scripts to a scratchpad file or a quoted heredoc. Bash heredocs with mixed quotes
   broke before.
@@ -33,7 +39,9 @@ HUD elements in an editor, reskins the HUD with themes, and restyles the vitals 
 - F9: editor
 - F3: hotkey list
 - F4: Settings panel (in the editor)
-- H: hidden-elements panel
+- H: hidden-elements panel. A selected element that shows nothing is previewed as the game's own notice where it
+  has one (`editor/preview.lua` NOTICES: the queue's collapsed entry, shown with example text and put back), else
+  a plain stand-in at the size it last showed at (`editor/samples.lua`, saved in `config/sizes.lua`).
 - Esc: closes the Settings panel, then the editor
 - Ctrl+F9: widget and texture dumps
 - Numpad +: API dump
@@ -94,6 +102,12 @@ Set the game to borderless windowed so screenshots aren't black.
   replacement.
 - **Hotbars:** `docs/hotbars-plan.md` covers 2 bars × 2 pages; the spell bar uses Numpad 0-9.
 - **Bags:** handled in Storage Mage (`docs/bags-plan.md`).
-- **Mod Menu replacement:** a later idea. A separate shared mod any mod can use, with our own look, a hotkey to open
-  it (not the pause menu), cross-mod hotkey conflict handling, and import/export of all mods' settings. It could
-  reuse the Settings panel engine and read other mods' `modmenu.json`.
+- **Shared Settings panel** (replaces the earlier "Mod Menu replacement" idea; no Mod Menu, user 2026-11-13): one
+  panel for all the user's mods, a tab per mod, a copy in every mod, the newest copy draws.
+  - Request: `mods/storagemage/docs/settings-panel-handoff.md`.
+  - Plan: `docs/settings-panel-plan.md`. It ends with three decisions for the user (plain look without Frame Mage,
+    Frame Mage's own settings through the shared channels, F4 as the open key). Start once they're answered.
+  - Source: `shared/settingspanel/` at the repository's root (built into each mod's zip by `tools/build.sh`).
+- **Storage Mage's tab art (F3):** its art list is in `mods/storagemage/docs/frame-mage-handoff.md` section 2
+  (`T_SM_Tab_<Bag>_Normal/_Highlight`, 124x64). Themed copies go in `Art/themes/<theme>/storagemage/`.
+- **Ideas:** `docs/ideas-from-other-mods.md` (from Relic Hunter UI and Rune UI; ideas only, see its licence note).

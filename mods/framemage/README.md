@@ -91,15 +91,21 @@ use the pad. Buttons are Xbox names; the same positions work on other pads.
 
 ## Themes
 
-Frame Mage has four high-fantasy themes, picked in Settings (**Look > Theme**) or with `theme = "..."` in
+Frame Mage has five high-fantasy themes, picked in Settings (**Look > Theme**) or with `theme = "..."` in
 `config/settings.lua`:
 
-| Theme | Look | Status |
-|---|---|---|
-| `elven` (default, "Elven") | moonstone and wispy gold light: High Elf meets Dwarven | Frame Mage's own panels done; game art in progress |
-| `warrior` | | coming soon (uses Elven's art meanwhile) |
-| `ranger` | | coming soon |
-| `wizard` | | coming soon |
+| Theme | Look |
+|---|---|
+| `elven` (the default) | Antique silver in frilly openwork filigree, with a glowing moonstone channel |
+| `warrior` | Polished steel, cut corners and rivets, with a red inlay |
+| `ranger` | Planed oak, rounded corners and ivy, with a green inlay |
+| `wizard` | Faceted black obsidian with a rune etched in each corner and a glowing blue channel |
+| `dwarven` | Hammered bronze and iron knotwork with studs, and a molten amber channel |
+
+Every theme styles Frame Mage's own panels, the windows' frames and the vitals bars. None replaces game
+textures by name yet (no `<TextureName>.png` in any theme folder). Warrior, Ranger, Wizard and Dwarven take the
+pieces they don't draw (the stones, the progress-bar art) from Elven. Each folder's `README.txt` says how its art is
+made.
 
 A theme is a folder, `Art/themes/<theme>/`:
 

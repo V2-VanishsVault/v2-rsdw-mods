@@ -48,7 +48,7 @@ or the arrows on the bar. Each bar shows which page it's on. Keys always act on 
 
 1. **API dump** (tool done): Numpad + in game, then confirm the move, use and cast functions.
 2. **Primary bar, page 1**: our bar mirroring the game's, the game's row hidden on the HUD, theme art.
-3. **Spell bar**: cast from a slot, assign from the radial, numpad keys, Mod Menu bindings.
+3. **Spell bar**: cast from a slot, assign from the radial, numpad keys, rebindable in the Settings panel.
 4. **Pages**: page switching for both bars; Primary page 2 via the Tool Belt (or reserved slots).
 
 Each phase is tested in game before the next, single-player first, then on a dedicated server.

@@ -1,7 +1,8 @@
 # Bags: plan
 
-Status: Storage Mage's design (its `docs/design.md`); Frame Mage's part is styling. Updated 2026-11-11 from
-Storage Mage's hand-off (`StorageMage/docs/frame-mage-handoff.md`): the Tool Belt's place is decided (Plan A).
+Status: Storage Mage's design (`mods/storagemage/docs/design.md`); Frame Mage's part is styling. Updated
+2026-11-13 from Storage Mage's hand-off (`mods/storagemage/docs/frame-mage-handoff.md`): the Tool Belt's place is
+decided (Plan A), the Tool Belt and its tab work in game, and the art list for F3 is in.
 
 **Decided:**
 - **Bags live in Storage Mage**, a sibling mod (2026-11-07). It owns the bags, pickup routing, workbench access,
@@ -32,7 +33,9 @@ New tabs in the inventory, after the game's own (Items, Runes, Arrows, Quests):
 | Rune Essence | 8 | Crafted | Rune Essence, Cursed Essence |
 
 - A crafted bag's tab appears while the bag is carried. Recipes aren't decided (Storage Mage's Phase 4).
-- Pickups go to the right bag; workbenches see bag contents; dragging an item onto a tab moves it there.
+- Pickups go to the right bag; workbenches see bag contents. There's no dragging into bags (user, 2026-11-13: the
+  game's drag and drop runs natively, out of Lua's reach): a sort key puts everything on the Items page away, and a
+  take-out key moves the hovered bag item to Items. The hotbar is never sorted.
 - Equipped items are listed twice (the loadout and the main inventory, same counts): count them once if Frame
   Mage ever shows totals.
 
@@ -41,9 +44,9 @@ New tabs in the inventory, after the game's own (Items, Runes, Arrows, Quests):
 | # | What | Status |
 |---|---|---|
 | F1 | Publish the theme as shared variables `FrameMage.theme` and `FrameMage.themeRev` (+1 on every change; set at start-up too) | Done (core/themes.lua `publish`). Whether this UE4SS build has `ModRef:SetSharedVariable` is checked by Storage Mage's test T20; if not, Frame Mage logs one warning. |
-| F2 | Theming reaches widgets made later (after the theme was applied, after a switch) | Done: brushes are themed whenever a brush setter is called (hooks), every live brush is re-checked on a switch, and inventory tab buttons that appear after their window was restyled get Frame Mage's border too. Storage Mage must set brushes through the setters (see the guide). |
-| F3 | `Art/themes/<theme>/storagemage/<name>.png` for each theme, from Storage Mage's art list | Waiting for the list |
-| F4 | Primary hotbar page 2 = the Tool Belt's top row (8 of its 16 slots) | Answered (Plan A: SlotType 9, top row slots 176-183). To build once Storage Mage's Tool Belt works in game |
+| F2 | Theming reaches widgets made later (after the theme was applied, after a switch) | Done: brushes are themed whenever a brush setter is called (hooks), every live brush is re-checked on a switch. (Inventory tab buttons get no Frame Mage border, so tabs added later need nothing.) Storage Mage must set brushes through the setters (see the guide). |
+| F3 | `Art/themes/<theme>/storagemage/<name>.png` for each theme, from Storage Mage's art list | Ready to start: the list is in Storage Mage's `frame-mage-handoff.md` section 2 (`T_SM_Tab_<Bag>_Normal` / `_Highlight`, 124x64, drawn at 62x32; defaults in `StorageMage/Art/default/`) |
+| F4 | Primary hotbar page 2 = the Tool Belt's top row (8 of its 16 slots) | Answered (Plan A: SlotType 9, top row slots 176-183). Storage Mage's Tool Belt works in game (2026-11-13: items survive a save, the tab shows), so this can be built with the hotbars (`hotbars-plan.md`, phase 4) |
 
 **Where the bags live (decided 2026-11-11): Plan A.** Every bag is a page of the main inventory
 (`BP_Components_Inventory_C` on the player controller), and every character has all pages, after the game's 8
@@ -68,9 +71,9 @@ a test page's 16 slots in Storage Mage's test T2. Its top row is the page's firs
 
 ## What Frame Mage does near Storage Mage's UI (for the two to agree)
 
-- **The inventory's tab row:** Frame Mage doesn't move or resize the row or its tabs. It lays its button border
-  over each tab (`WBP_InventoryTabButton_C`), in the button's own overlay, centered on its tile, 9 units narrower
-  and 1 taller than the tile; brighter on the selected tab. Bag tabs added to the row later get the same border.
+- **The inventory's tab row:** Frame Mage doesn't move, resize or border the row or its tabs
+  (`WBP_InventoryTabButton_C`): they keep the game's look, with only their textures themed by name, so Storage
+  Mage's own tabs sit in the row as they are.
 - **The inventory window's size:** unchanged. Frame Mage's frame is drawn outward, past the window's edges, by
   20 units (every theme); nothing inside moves. (Station and chest windows are moved 24 units right of
   where the game opens them, clear of the inventory: `inventory.windowGap`.)
