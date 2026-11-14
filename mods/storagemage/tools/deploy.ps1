@@ -1,8 +1,9 @@
 # Installs Storage Mage into the game's UE4SS Mods folder.
 #
 #   powershell -ExecutionPolicy Bypass -File tools\deploy.ps1          copy (what players use)
-#   powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Link    development: junction Scripts\ to this repo,
-#                                                                       so edits are live on the next game start
+#   powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Link    development: junction Scripts\, Art\ and dev\
+#                                                                       (the developer features) to this repo, so
+#                                                                       edits are live on the next game start
 #   add -GameDir "D:\...\RSDragonwilds" for a non-default install
 #   add -ModsDir "\\server\share\...\ue4ss\Mods" to install straight into a UE4SS Mods folder anywhere, e.g. a
 #       dedicated server on another machine (a network share). Use copy mode there: -Link can't cross machines.
@@ -93,6 +94,23 @@ foreach ($code in "Scripts", "Art") {
         Remove-Folder $gameDir # always replaced
         Copy-Item $repoDir $gameDir -Recurse
     }
+}
+
+# Developer features (dumps, probes) live in ..\dev, never in releases. -Link links them in as Mods\StorageMage\dev;
+# a copy install is what players get, so it has none (an old link is removed).
+$devRepo = (Resolve-Path (Join-Path $PSScriptRoot "..\dev")).Path
+$devGame = Join-Path $dst "dev"
+if ($Link) {
+    if ((Test-Junction $devGame) -and ((Get-Item $devGame -Force).Target -contains $devRepo)) {
+        Write-Host "dev already linked"
+    } else {
+        Remove-Folder $devGame
+        New-Item -ItemType Junction -Path $devGame -Target $devRepo | Out-Null
+        Write-Host "dev -> $devRepo (junction: developer features)"
+    }
+} elseif ((Test-Path $devGame) -or (Test-Junction $devGame)) {
+    Remove-Folder $devGame
+    Write-Host "dev removed (a copy install has no developer features)"
 }
 
 foreach ($dir in "config", "dumps", "saves") {

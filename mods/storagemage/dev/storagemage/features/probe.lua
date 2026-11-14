@@ -165,11 +165,8 @@ function M.netChecks(pc)
     return table.concat(parts, "  ")
 end
 
--- ItemData and its script subclasses (from the type map). FindAllOf should already return subclasses (Frame Mage
--- relies on that for UserWidget); querying them too covers the case where it doesn't, and catalogLines dedupes.
-M.ITEM_DATA_CLASSES = { "ItemData", "BuffItemData", "BuildableItemData", "ConsumableItemData", "CraftableItemData",
-    "DrinkItemData", "FoodItemData", "FuelItemData", "JournalItemData", "PotionItemData", "TrinketItemData",
-    "WardstoneItemData", "WhetstoneItemData" }
+-- The classes item definitions are found under (shipping code uses the same list: storagemage/items.lua).
+M.ITEM_DATA_CLASSES = require("storagemage.items").ITEM_DATA_CLASSES
 
 -- Only definitions the game has loaded are found; the count goes in the file header so gaps are visible.
 local function collectItemData()

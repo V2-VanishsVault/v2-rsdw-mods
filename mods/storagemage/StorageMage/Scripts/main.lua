@@ -1,13 +1,15 @@
 -- Storage Mage: bags, pickup routing, workbench access and carry weight for RuneScape: Dragonwilds (UE4SS Lua).
 -- Runs on the server (owns the inventories) and on clients (reads them and draws Storage Mage's own UI;
 -- Frame Mage, if installed, only restyles it).
--- Design: docs/design.md. Bag logic is not built yet; this is the scaffold.
+-- Design: docs/design.md.
 --
 -- Structure
 --   storagemage/core/*      shared services: log, fs, serialize, config, sched, events, keys, objects, toast
 --   storagemage/features/*  one module per feature; each exports init(ctx)
+--   dev/                    developer features (dumps, probes), next to Scripts/ in a development install only:
+--                           dev/features.lua lists them. Release zips don't have it, and nothing here needs it.
 
-local FEATURES = { "probe", "pages", "tags", "uidump", "belttab", "dragprobe", "bagmoves", "pagetest" }
+local FEATURES = { "pages", "tags", "belttab", "bagmoves" }
 
 local function modDir()
     local src = (debug.getinfo(1, "S").source or ""):gsub("^@", "")
@@ -68,22 +70,38 @@ if not ctx.enabled then
     return
 end
 
-for _, name in ipairs(FEATURES) do
+local function start(name, kind)
     if ctx.settings.features[name] == false then
-        log.info("feature '%s' disabled in settings", name)
-    else
-        local ok, mod = pcall(require, "storagemage.features." .. name)
-        if ok then
-            local okInit, err = pcall(mod.init, ctx)
-            if okInit then
-                ctx.features[name] = mod
-                log.info("feature '%s' ready", name)
-            else
-                log.error("feature '%s' failed to start: %s", name, tostring(err))
-            end
+        log.info("%s '%s' disabled in settings", kind, name)
+        return
+    end
+    local ok, mod = pcall(require, "storagemage.features." .. name)
+    if ok then
+        local okInit, err = pcall(mod.init, ctx)
+        if okInit then
+            ctx.features[name] = mod
+            log.info("%s '%s' ready", kind, name)
         else
-            log.error("feature '%s' failed to load: %s", name, tostring(mod))
+            log.error("%s '%s' failed to start: %s", kind, name, tostring(err))
         end
+    else
+        log.error("%s '%s' failed to load: %s", kind, name, tostring(mod))
+    end
+end
+
+for _, name in ipairs(FEATURES) do start(name, "feature") end
+
+-- Developer features: only in a development install (the dev folder linked in by tools\deploy.ps1 -Link).
+local devList = io.open(DIR .. "dev/features.lua", "r")
+if devList then
+    devList:close()
+    package.path = DIR .. "dev/?.lua;" .. package.path
+    local okL, names = pcall(dofile, DIR .. "dev/features.lua")
+    if okL and type(names) == "table" then
+        ctx.dev = true
+        for _, name in ipairs(names) do start(name, "developer feature") end
+    else
+        log.error("dev/features.lua couldn't be read: %s", tostring(names))
     end
 end
 

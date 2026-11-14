@@ -18,7 +18,7 @@ local L = require("storagemage.layout")
 local F = require("storagemage.filters")
 local R = require("storagemage.routing")
 local TAGS = require("storagemage.features.tags")
-local UIDUMP = require("storagemage.features.uidump")
+local INVUI = require("storagemage.inventoryui")
 
 local ctx, log, O
 
@@ -243,7 +243,7 @@ end
 local function takeOut()
     local mode = localMode()
     local pc = O.localController()
-    local pick = UIDUMP.findNav()
+    local pick = INVUI.findNav()
     if not (mode and pc and pick) then return end
     local slot = hoveredBagSlot(pick.w)
     if not slot then return end -- not over a bag slot: the key does nothing

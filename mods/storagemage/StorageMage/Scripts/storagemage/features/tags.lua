@@ -14,7 +14,7 @@ local M = {}
 
 local F = require("storagemage.filters")
 local L = require("storagemage.layout")
-local PROBE = require("storagemage.features.probe") -- for its list of ItemData classes
+local ITEMS = require("storagemage.items") -- the classes item definitions are found under
 
 local ctx, log, O
 
@@ -88,7 +88,7 @@ function M.pass(why)
     if why == "InitGameState" or why == "script load" then loaded, failed, present = loadRemembered() end
     local bags, ord, seen = ctx.settings.bags, order(), {}
     local counts = { matched = 0, added = 0, failed = 0 }
-    for _, cls in ipairs(PROBE.ITEM_DATA_CLASSES) do
+    for _, cls in ipairs(ITEMS.ITEM_DATA_CLASSES) do
         for _, d in pairs(try(function() return FindAllOf(cls) end) or {}) do
             local asset = try(function() return O.name(d) end)
             if asset and not seen[asset] and not asset:find("^Default__") and O.valid(d) then

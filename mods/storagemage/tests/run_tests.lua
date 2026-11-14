@@ -1,7 +1,9 @@
 -- Unit tests for the engine-independent parts, plus a smoke test that loads main.lua with stubbed UE4SS
 -- globals. Run from the repo root with Lua 5.4:
 --   lua tests/run_tests.lua
-package.path = "StorageMage/Scripts/?.lua;" .. package.path
+-- dev/ holds the developer features (not in releases); the smoke test below runs without it.
+local BASE_PATH = package.path
+package.path = "StorageMage/Scripts/?.lua;dev/?.lua;" .. BASE_PATH
 
 local failures, passes = 0, 0
 local function check(name, cond, detail)
@@ -392,23 +394,29 @@ do
         FName = function(s) return s end,
     }
     for k, v in pairs(stubs) do _G[k] = v end
+    -- As a release install: no dev folder on the path, and every module loaded fresh, so a shipping module that
+    -- still needs a developer one fails here.
+    local savedPath, savedLoaded = package.path, {}
+    for name, m in pairs(package.loaded) do
+        if name:match("^storagemage") then savedLoaded[name] = m; package.loaded[name] = nil end
+    end
+    package.path = "StorageMage/Scripts/?.lua;" .. BASE_PATH
     local realPrint = print
     _G.print = function(s) logged[#logged + 1] = s end
     local ok, err = pcall(dofile, dir .. "/Scripts/main.lua")
     for _, fn in ipairs(scheduled) do pcall(fn) end -- one round of game-thread callbacks
     _G.print = realPrint
     for k in pairs(stubs) do _G[k] = nil end
+    package.path = savedPath
+    for name in pairs(package.loaded) do if name:match("^storagemage") then package.loaded[name] = nil end end
+    for name, m in pairs(savedLoaded) do package.loaded[name] = m end
     check("main.lua runs", ok, err)
     local joined = table.concat(logged, "")
-    check("feature probe ready", joined:find("feature 'probe' ready", 1, true) ~= nil, joined)
-    check("feature pagetest off by default", joined:find("feature 'pagetest' disabled in settings", 1, true) ~= nil, joined)
+    check("release: no developer features", joined:find("developer feature", 1, true) == nil, joined)
     check("feature pages ready", joined:find("feature 'pages' ready", 1, true) ~= nil, joined)
-    check("no T1 timeline while pagetest is off", hadT1 or not exists(dir .. "/dumps/t1.txt"))
     if not hadT1 then os.remove(dir .. "/dumps/t1.txt") end
     check("feature tags ready", joined:find("feature 'tags' ready", 1, true) ~= nil, joined)
-    check("feature uidump off by default", joined:find("feature 'uidump' disabled in settings", 1, true) ~= nil, joined)
     check("feature belttab ready", joined:find("feature 'belttab' ready", 1, true) ~= nil, joined)
-    check("feature dragprobe off by default", joined:find("feature 'dragprobe' disabled in settings", 1, true) ~= nil, joined)
     check("feature bagmoves ready", joined:find("feature 'bagmoves' ready", 1, true) ~= nil, joined)
     if not hadTags then os.remove(dir .. "/dumps/tags.txt") end
     check("started callback ran", joined:find("Storage Mage running", 1, true) ~= nil, joined)
@@ -425,11 +433,25 @@ do
     if not hadDefaults then os.remove(dir .. "/config/settings.defaults.lua") end
 end
 
--- uidump.findNav works with the uidump feature switched off (belttab and bagmoves call it; its init never runs).
--- Regression: 2026-11-13, "attempt to index a nil value (upvalue 'O')" left the Tool Belt without its tab.
+-- Developer features (dev/): each one listed loads and has init; none is in the release's Scripts folder.
 do
-    package.loaded["storagemage.features.uidump"] = nil
-    local UD = require("storagemage.features.uidump")
+    local okL, names = pcall(dofile, "dev/features.lua")
+    check("dev/features.lua lists the developer features", okL and type(names) == "table" and #names > 0, tostring(names))
+    for _, name in ipairs(okL and names or {}) do
+        local okM, m = pcall(require, "storagemage.features." .. name)
+        check("developer feature " .. name .. " loads", okM and type(m) == "table" and type(m.init) == "function", tostring(m))
+        local f = io.open("StorageMage/Scripts/storagemage/features/" .. name .. ".lua", "rb")
+        if f then f:close() end
+        check("developer feature " .. name .. " not shipped in Scripts/", f == nil)
+    end
+end
+
+-- inventoryui.findNav works on its own, with no feature started (belttab and bagmoves call it).
+-- Regression: 2026-11-13, when it lived in the uidump developer feature, switching that off left the Tool Belt
+-- without its tab ("attempt to index a nil value (upvalue 'O')").
+do
+    package.loaded["storagemage.inventoryui"] = nil
+    local UD = require("storagemage.inventoryui")
     local savedFind = FindAllOf
     local nav = {
         IsValid = function() return true end,
@@ -441,8 +463,8 @@ do
     FindAllOf = function(cls) if cls == "WBP_Inventory_VerticalNavigation_C" then return { nav } end end
     local ok, pick = pcall(UD.findNav)
     FindAllOf = savedFind
-    check("uidump.findNav runs without uidump's init", ok, tostring(pick))
-    check("uidump.findNav picks the visible navigation", ok and pick and pick.w == nav)
+    check("inventoryui.findNav runs on its own", ok, tostring(pick))
+    check("inventoryui.findNav picks the visible navigation", ok and pick and pick.w == nav)
 end
 
 print(string.format("%d passed, %d failed", passes, failures))

@@ -10,7 +10,7 @@
 -- Changes nothing. Off once the moves are built.
 local M = {}
 
-local UIDUMP = require("storagemage.features.uidump")
+local INVUI = require("storagemage.inventoryui")
 
 local ctx, log, O
 
@@ -163,7 +163,7 @@ end
 local done = false
 local function check()
     if done then return end
-    local pick = UIDUMP.findNav()
+    local pick = INVUI.findNav()
     if not pick then return end
     done = true
     local ok, err = pcall(probe, pick.w)
@@ -172,7 +172,7 @@ end
 
 -- Which slot is under the mouse: every page body's slots, then the hotbar's (InventoryUIAPI.QuickActionSlots).
 local function hovered()
-    local pick = UIDUMP.findNav()
+    local pick = INVUI.findNav()
     if not pick then drag("hover: inventory not open") return end
     local found = {}
     local function scan(label, arr)

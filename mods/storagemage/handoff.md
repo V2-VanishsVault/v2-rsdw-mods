@@ -61,10 +61,11 @@ Essence 8. Crafted bags appear when carried.
   in the inventory screen with our own icon ("Looks perfect!", user). Icons for all seven bags are drawn.
 - **Pickup routing, the sort key and the take-out key are built, not yet run in game.** README "Phase 2 test:
   pickup routing, sorting and taking out" has the steps. For now only the Tool Belt takes part.
-- **Tests:** `lua tests/run_tests.lua` from this folder: 263 pass, including a smoke test that loads `main.lua`
-  against stubbed UE4SS globals. Run them after every change. CI runs them for every push that changes this mod.
+- **Tests:** `lua tests/run_tests.lua` from this folder: 272 pass (2026-11-14), including a smoke test that loads
+  `main.lua` against stubbed UE4SS globals as a release install (no `dev/`). Run them after every change. CI runs them for every push that changes this mod.
 - **Deployed locally with `-Link`:** the game's `Mods\StorageMage\Scripts` and `Art` are junctions to this
   folder's `StorageMage\Scripts` and `StorageMage\Art` (checked 2026-11-13), so edits load on the next game start.
+  Run it once more after 2026-11-14 to link `dev\` too (`Mods\StorageMage\dev`).
 - **Git:** part of the monorepo. Nothing of Storage Mage's work since the move is committed separately; commit only
   when the user asks, and only this mod's paths (`git add mods/storagemage listings/storagemage`).
 
@@ -73,8 +74,11 @@ Essence 8. Crafted bags appear when carried.
 - `StorageMage/Scripts/main.lua` loads `storagemage/features/*`:
   - `pages` (the template patch, `dumps/pages.txt`), `tags` (the Tool Belt's filter tag on tool definitions),
     `belttab` (the Tool Belt tab), `bagmoves` (routing, sorting, taking out; `dumps/moves.txt`).
-  - Developer tools: `probe` (Numpad − dump), and, off by default, `pagetest` (T1 timeline), `uidump`,
-    `dragprobe`.
+- Developer tools are in `dev/` (2026-11-14), never in releases: `probe` (Numpad − dump), and, off by default,
+  `pagetest` (T1 timeline), `uidump`, `dragprobe`, under `dev/storagemage/features/`, listed in `dev/features.lua`.
+  `main.lua` starts them only when the folder is there. Shipping code never `require`s them: the inventory screen
+  lookup is `storagemage/inventoryui.lua` and the item classes `storagemage/items.lua` (they used to live in `uidump`
+  and `probe`, which is how switching `uidump` off broke the Tool Belt tab on 2026-11-13).
 - `storagemage/`: `layout.lua` (the fixed page layout and slot maths), `filters.lua` (bag matching), `routing.lua`
   (the pure move planner), `art.lua` (tab art: theme copy, then Elven, then default), `defaults.lua` (settings and
   bag specs).

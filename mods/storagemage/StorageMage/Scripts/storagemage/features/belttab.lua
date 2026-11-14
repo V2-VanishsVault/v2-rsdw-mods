@@ -11,7 +11,7 @@
 local M = {}
 
 local L = require("storagemage.layout")
-local UIDUMP = require("storagemage.features.uidump")
+local INVUI = require("storagemage.inventoryui")
 local ART = require("storagemage.art")
 
 M.ICON = "T_SM_Tab_ToolBelt" -- + _Normal / _Highlight: Art/default/, or a Frame Mage theme's storagemage/ folder
@@ -285,7 +285,7 @@ end
 
 local doneFor, measured = {}, {}
 local function check()
-    local pick = UIDUMP.findNav()
+    local pick = INVUI.findNav()
     if not pick then return end
     local id = pick.id
     if doneFor[id] ~= nil then

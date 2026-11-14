@@ -37,10 +37,10 @@ yes to replacing files, then start the server. The zip holds code and empty data
 
 | Key | What |
 |---|---|
-| Numpad − (`keys.dumpInventory = "Subtract"`) | Developer: the player's inventories, pages, items and their tags → `Mods\StorageMage\dumps\inventory.txt`; every loaded item definition → `dumps\items.txt` |
+| Numpad − (`keys.dumpInventory = "Subtract"`) | Developer (`dev/`, feature `probe`): the player's inventories, pages, items and their tags → `Mods\StorageMage\dumps\inventory.txt`; every loaded item definition → `dumps\items.txt` |
 | Numpad / (`keys.sortBags = "Divide"`) | Sort: everything on the Items page that belongs in a bag goes into it (the hotbar is never touched) |
 | T (`keys.takeOut = "T"`) | With the inventory open: the bag item under the mouse goes to the Items page |
-| Numpad + (`keys.hoverProbe = "Add"`) | Developer (feature `dragprobe`, off): the slot under the mouse → `dumps\drag.txt` |
+| Numpad + (`keys.hoverProbe = "Add"`) | Developer (`dev/`, feature `dragprobe`, off): the slot under the mouse → `dumps\drag.txt` |
 
 Items that belong in a bag go into it when you pick them up, take them from a chest, or craft them
 (`pickupRouting = true`). Only what you gained moves: an item you took out stays out until you sort.
@@ -157,7 +157,13 @@ Unit tests for the engine-independent code, plus a smoke test that loads `main.l
 ## Layout
 
 - `StorageMage/Scripts/main.lua`: entry point; loads `storagemage/features/*` (`pages`, `tags`, `belttab`,
-  `bagmoves`, and the developer tools `probe`, `pagetest`, `uidump`, `dragprobe`).
+  `bagmoves`).
+- `StorageMage/Scripts/storagemage/inventoryui.lua` (finding the inventory screen) and `items.lua` (the item
+  definition classes): helpers the features share with the developer tools.
+- `dev/`: the developer tools, never in releases: `dev/features.lua` lists them (`probe`, `uidump`, `dragprobe`,
+  `pagetest`, under `dev/storagemage/features/`). `tools\deploy.ps1 -Link` links it into the game as
+  `Mods\StorageMage\dev`; a copy install and `-Package` leave it out. Shipping code never `require`s it (the smoke
+  test runs `main.lua` without it).
 - `StorageMage/Scripts/storagemage/`: `layout.lua` (the page layout), `filters.lua` (which bag an item belongs
   in), `routing.lua` (the move planner), `art.lua` (tab art lookup), `defaults.lua` (settings and bag specs).
 - `StorageMage/Scripts/storagemage/core/`: log, sched, events, config, fs, serialize, keys (copied from Frame Mage,
