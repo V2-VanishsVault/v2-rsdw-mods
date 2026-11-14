@@ -66,6 +66,35 @@ end
 
 local function resName(o) return O.valid(o) and O.name(o) or "none" end
 
+local function marginText(m)
+    if not m then return "?" end
+    return string.format("%s/%s/%s/%s", tostring(m.Left), tostring(m.Top), tostring(m.Right), tostring(m.Bottom))
+end
+
+-- Copies a widget's slot layout (padding, size rule, alignment) onto another widget's slot in the same panel,
+-- through the slot's setters, and notes both before and after. Unit-tested with stand-in slots.
+function M.copySlotLayout(from, to, noteFn)
+    local a, b = from and try(function() return from.Slot end), to and try(function() return to.Slot end)
+    if not (a and b) then noteFn("  tab spacing: no slot to copy (%s -> %s)", tostring(a ~= nil), tostring(b ~= nil)) return false end
+    local pad = try(function() return a.Padding end)
+    noteFn("  tab spacing: game tab padding %s, ours %s", marginText(pad), marginText(try(function() return b.Padding end)))
+    local copied = {}
+    if pad and try(function()
+        b:SetPadding({ Left = pad.Left, Top = pad.Top, Right = pad.Right, Bottom = pad.Bottom })
+        return true
+    end) then copied[#copied + 1] = "padding" end
+    local size = try(function() return a.Size end)
+    if size and try(function() b:SetSize({ SizeRule = size.SizeRule, Value = size.Value }) return true end) then
+        copied[#copied + 1] = "size"
+    end
+    local h, v = try(function() return a.HorizontalAlignment end), try(function() return a.VerticalAlignment end)
+    if h and try(function() b:SetHorizontalAlignment(h) return true end) then copied[#copied + 1] = "h-align" end
+    if v and try(function() b:SetVerticalAlignment(v) return true end) then copied[#copied + 1] = "v-align" end
+    noteFn("  tab spacing: copied %s; ours now %s", #copied > 0 and table.concat(copied, ", ") or "nothing",
+        marginText(try(function() return b.Padding end)))
+    return #copied > 0
+end
+
 -- The tab's icon: a tab icon is its RadioCheckBox's style (T_Icon_<Name>_Normal when unselected, _Highlight when
 -- selected, shown at 62x32). Runes, Ammo and Quest set it through CheckBoxStyleOverride (Items uses the check
 -- box's own style), so: copy Runes' override (sizes, margins, sounds), put our two textures in its four brushes,
@@ -219,6 +248,10 @@ local function build(nav)
         function() return try(function() return group:GetChildrenCount() end) == M.GAME_TABS + 1 end) then
         return false
     end
+    -- AddChild gives our tab a fresh slot; the game's tabs have their spacing in theirs (ours sat further from the
+    -- Quest tab than the game's tabs sit from each other, 2026-11-14). Copy the last game tab's slot layout.
+    local lastGameTab = O.get(nav, "Button_QuestItems") or itemsTab
+    M.copySlotLayout(lastGameTab, tab, note)
     step("re-initialize the group", function()
         group.RadioButtons:Empty()
         group:Initialize()
@@ -227,13 +260,39 @@ local function build(nav)
     return true
 end
 
-local doneFor = {}
+-- Developer, once per screen: each tab's laid-out size and its check box's picture size and padding, to find why
+-- our tab sits further along the row than the game's tabs sit from each other (2026-11-14).
+local function vec(v) return v and string.format("%.1fx%.1f", v.X or -1, v.Y or -1) or "?" end
+local function measureTabs(nav)
+    local group = O.get(nav, "CategoryButtonGroup")
+    local n = try(function() return group:GetChildrenCount() end) or 0
+    note("tab sizes (row %s, slot class %s):", O.valid(group) and O.className(group) or "?",
+        try(function() return O.className(group:GetChildAt(0).Slot) end) or "?")
+    for i = 0, n - 1 do
+        local t = try(function() return group:GetChildAt(i) end)
+        if O.valid(t) then
+            local cb = O.get(t, "RadioCheckBox")
+            local st = try(function() return cb.WidgetStyle end)
+            note("  %d %s: desired %s; check box desired %s, picture %s, padding %s; slot size rule %s",
+                i, O.name(t), vec(try(function() return t:GetDesiredSize() end)),
+                vec(try(function() return cb:GetDesiredSize() end)),
+                vec(try(function() return st.UncheckedImage.ImageSize end)),
+                marginText(try(function() return st.Padding end)),
+                tostring(try(function() return t.Slot.Size.SizeRule end)))
+        end
+    end
+end
+
+local doneFor, measured = {}, {}
 local function check()
     local pick = UIDUMP.findNav()
     if not pick then return end
     local id = pick.id
     if doneFor[id] ~= nil then
-        if doneFor[id] then pcall(themeCheck, pick.w) end
+        if doneFor[id] then
+            pcall(themeCheck, pick.w)
+            if not measured[id] then measured[id] = true; pcall(measureTabs, pick.w) end
+        end
         return
     end
     local ok, res = pcall(build, pick.w)

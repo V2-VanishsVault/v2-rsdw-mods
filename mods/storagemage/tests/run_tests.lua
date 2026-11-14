@@ -334,6 +334,24 @@ eq("skip unrelated", DP.wanted("RefreshSlots"), false)
 local BT = require("storagemage.features.belttab")
 eq("tab rows tool belt", BT.rows(16), 2); eq("tab rows items", BT.rows(32), 4); eq("tab rows ores", BT.rows(72), 9)
 eq("tab rows essence", BT.rows(8), 1); eq("tab value after game tabs", BT.GAME_TABS, 4)
+do -- our tab takes the game tab's slot layout (spacing in the tab row)
+    local function slot(pad)
+        local s = { Padding = pad, Size = { SizeRule = 1, Value = 1 }, HorizontalAlignment = 2, VerticalAlignment = 0 }
+        function s:SetPadding(p) self.Padding = p end
+        function s:SetSize(z) self.Size = z end
+        function s:SetHorizontalAlignment(h) self.HorizontalAlignment = h end
+        function s:SetVerticalAlignment(v) self.VerticalAlignment = v end
+        return s
+    end
+    local game = { Slot = slot({ Left = -6, Top = 0, Right = -6, Bottom = 0 }) }
+    local ours = { Slot = slot({ Left = 0, Top = 0, Right = 0, Bottom = 0 }) }
+    ours.Slot.Size = { SizeRule = 0, Value = 0 }
+    local notes = {}
+    local ok = BT.copySlotLayout(game, ours, function(fmt, ...) notes[#notes + 1] = string.format(fmt, ...) end)
+    check("tab spacing copied", ok and ours.Slot.Padding.Left == -6 and ours.Slot.Padding.Right == -6
+        and ours.Slot.Size.SizeRule == 1 and ours.Slot.HorizontalAlignment == 2, table.concat(notes, " | "))
+    check("tab spacing: no slot, nothing copied", BT.copySlotLayout(nil, ours, function() end) == false)
+end
 do
     local all = true
     for _, p in ipairs(L.PAGES) do if p.slots % BT.SLOTS_PER_ROW ~= 0 then all = false end end

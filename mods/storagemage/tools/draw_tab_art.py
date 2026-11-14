@@ -35,9 +35,14 @@ COLOURS = {
                             "inner": (118, 98, 64), "grad": ((160, 136, 96), (128, 106, 72)), "alpha": 255,
                             "line": 2.0}},   # the selected tab's gold frame is bolder
 }
-# Plate and icon placement, measured against the game's tabs on screen (2026-11-13): the game's plate is 94 x 60
-# of the 124 x 64 texture, touching the bottom with a gap above; its icon sits a little below the plate's centre.
+# Plate and icon placement, measured against the game's tabs on screen: the plate touches the bottom with a gap
+# above; its icon sits a little below the plate's centre. The game's plate is 94 of the texture's 124 pixels wide
+# and starts at its left edge, the empty part on the right (2026-11-14, measured on rows clear of the icons: the
+# game's plates 58-60 screen px wide, one every 72). Centred, ours sat further from the Quest tab than the game's
+# tabs sit from each other; 106 wide, it looked wider than theirs.
+PLATE_X = 0
 PLATE_W = 94
+PLATE_CX = PLATE_X + PLATE_W / 2   # the icons centre on the plate, not the texture
 PLATE_TOP = 4                   # its edges matched the game's plates in game (2026-11-13)
 # Each icon is fitted by its own outline, so they all match whatever their drawing's extent: measured in game
 # (2026-11-13), the game's icons are about 35 of the texture's 64 pixels tall, up to ~40 wide, centred 36 down.
@@ -51,7 +56,7 @@ ICON_DY = 0
 def P(x, y):
     """Design units -> supersampled pixels."""
     s = H / 64.0
-    return (W / 2 + (x - 32) * ICON_SCALE * s, (32 + (y - 32) * ICON_SCALE + ICON_DY) * s)
+    return (PLATE_CX * SS + (x - 32) * ICON_SCALE * s, (32 + (y - 32) * ICON_SCALE + ICON_DY) * s)
 
 
 def poly(d, pts, fill=255):
@@ -277,7 +282,7 @@ def plate(kind):
     a = p["alpha"]
     small = Image.new("RGBA", (OUT_W, OUT_H), (0, 0, 0, 0))
     px = small.load()
-    x0 = (OUT_W - PLATE_W) / 2
+    x0 = PLATE_X
     x1 = x0 + PLATE_W
     y0, y1 = PLATE_TOP, OUT_H
     (r0, g0, b0), (r1, g1, b1) = p["grad"]
@@ -316,7 +321,7 @@ def fit(mask):
     s = min(ICON_MAX_W * SS / part.width, ICON_MAX_H * SS / part.height)
     part = part.resize((max(1, round(part.width * s)), max(1, round(part.height * s))), Image.LANCZOS)
     out = Image.new("L", (W, H), 0)
-    out.paste(part, (round(W / 2 - part.width / 2), round(ICON_CENTRE_Y * SS - part.height / 2)))
+    out.paste(part, (round(PLATE_CX * SS - part.width / 2), round(ICON_CENTRE_Y * SS - part.height / 2)))
     return out
 
 
