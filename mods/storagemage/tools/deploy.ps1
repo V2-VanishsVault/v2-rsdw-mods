@@ -29,6 +29,11 @@ if ($Package) {
     $mod = Join-Path $stage "StorageMage"
     New-Item -ItemType Directory -Force $mod | Out-Null
     foreach ($code in "Scripts", "Art") { Copy-Item (Join-Path $src $code) (Join-Path $mod $code) -Recurse }
+    # the shared Settings panel: its *.lua files only (as tools/build.sh does)
+    $panelZip = Join-Path (Join-Path $mod "Scripts") "settingspanel"
+    if (Test-Path $panelZip) { Remove-Item $panelZip -Recurse -Force }
+    New-Item -ItemType Directory -Force $panelZip | Out-Null
+    Copy-Item (Join-Path (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\shared\settingspanel")).Path "*.lua") $panelZip
     foreach ($dir in "config", "dumps", "saves") {
         New-Item -ItemType Directory -Force (Join-Path $mod $dir) | Out-Null
         Set-Content (Join-Path $mod "$dir\.keep") "" -Encoding ascii
@@ -94,6 +99,30 @@ foreach ($code in "Scripts", "Art") {
         Remove-Folder $gameDir # always replaced
         Copy-Item $repoDir $gameDir -Recurse
     }
+}
+
+# The Settings panel every Mage mod shares (shared\settingspanel at the repository's root) runs as
+# Scripts\settingspanel. -Link: a junction inside this repo's Scripts folder (Scripts\ is linked into the game; git
+# ignores the junction). A copy install gets its *.lua files, as a release zip has them (tools/build.sh).
+$panelRepo = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\shared\settingspanel")).Path
+$panelIn = Join-Path (Join-Path $src "Scripts") "settingspanel"
+if ($Link) {
+    if ((Test-Junction $panelIn) -and ((Get-Item $panelIn -Force).Target -contains $panelRepo)) {
+        Write-Host "settingspanel already linked"
+    } else {
+        if ((Test-Path $panelIn) -and -not (Test-Junction $panelIn)) {
+            throw "$panelIn is a real folder; the shared panel's source is $panelRepo. Move it away first."
+        }
+        Remove-Folder $panelIn
+        New-Item -ItemType Junction -Path $panelIn -Target $panelRepo | Out-Null
+        Write-Host "Scripts\settingspanel -> $panelRepo (junction: the shared Settings panel)"
+    }
+} else {
+    $panelGame = Join-Path (Join-Path $dst "Scripts") "settingspanel"
+    Remove-Folder $panelGame
+    New-Item -ItemType Directory -Force $panelGame | Out-Null
+    Copy-Item (Join-Path $panelRepo "*.lua") $panelGame
+    Write-Host "Scripts\settingspanel: the shared Settings panel copied"
 }
 
 # Developer features (dumps, probes) live in ..\dev, never in releases. -Link links them in as Mods\StorageMage\dev;

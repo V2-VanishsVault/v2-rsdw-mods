@@ -8,3 +8,4 @@ StorageMage/config/settings.defaults.lua
 *.bad
 __pycache__/
 dist/
+StorageMage/Scripts/settingspanel

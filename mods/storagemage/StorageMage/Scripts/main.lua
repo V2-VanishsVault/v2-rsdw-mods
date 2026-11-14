@@ -105,6 +105,9 @@ if devList then
     end
 end
 
+-- Storage Mage's tab in the Settings panel every Mage mod shares (Scripts/settingspanel; F4 opens it).
+require("storagemage.panelclient").start(ctx)
+
 -- Hotkeys are polled on the game thread (see core/keys.lua for why not RegisterKeyBind). A dedicated server
 -- has no local player, so polling finds no controller and costs almost nothing.
 ctx.keys.start(ctx)

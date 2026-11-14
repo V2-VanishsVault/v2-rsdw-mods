@@ -3,7 +3,8 @@
 --   lua tests/run_tests.lua
 -- dev/ holds the developer features (not in releases); the smoke test below runs without it.
 local BASE_PATH = package.path
-package.path = "StorageMage/Scripts/?.lua;dev/?.lua;" .. BASE_PATH
+-- (../../shared/ is the Settings panel every mod ships as Scripts/settingspanel)
+package.path = "StorageMage/Scripts/?.lua;dev/?.lua;../../shared/?.lua;" .. BASE_PATH
 
 local failures, passes = 0, 0
 local function check(name, cond, detail)
@@ -400,7 +401,7 @@ do
     for name, m in pairs(package.loaded) do
         if name:match("^storagemage") then savedLoaded[name] = m; package.loaded[name] = nil end
     end
-    package.path = "StorageMage/Scripts/?.lua;" .. BASE_PATH
+    package.path = "StorageMage/Scripts/?.lua;../../shared/?.lua;" .. BASE_PATH
     local realPrint = print
     _G.print = function(s) logged[#logged + 1] = s end
     local ok, err = pcall(dofile, dir .. "/Scripts/main.lua")
@@ -465,6 +466,28 @@ do
     FindAllOf = savedFind
     check("inventoryui.findNav runs on its own", ok, tostring(pick))
     check("inventoryui.findNav picks the visible navigation", ok and pick and pick.w == nav)
+end
+
+-- the shared Settings panel: Storage Mage's tab -----------------------------------------------------------------
+do
+    local Pc = require("storagemage.panelclient")
+    local P = require("settingspanel.protocol")
+    local K = require("storagemage.core.keys")
+    local clean, notes = P.clean({ protocol = 1, mod = "StorageMage", title = "Storage Mage", tabs = Pc.TABS, rows = Pc.ROWS })
+    check("Storage Mage's rows make a clean schema", clean ~= nil and #notes == 0)
+    local defaultsT = require("storagemage.defaults")
+    for _, r in ipairs(Pc.ROWS) do
+        if r.setting then check("panel row has a default: " .. r.setting, Pc.getPath(defaultsT, r.setting) ~= nil) end
+    end
+    check("a key that parses is accepted", Pc.valid("keys.sortBags", "CTRL+F5", K.parse))
+    check("a garbled key is refused", not Pc.valid("keys.sortBags", "", K.parse))
+    check("the switch takes booleans only", Pc.valid("pickupRouting", false, K.parse) and not Pc.valid("pickupRouting", "no", K.parse))
+    check("unknown settings are refused", not Pc.valid("bags.toolBelt", {}, K.parse))
+    local t = {}
+    Pc.setPath(t, "keys.takeOut", "Y")
+    eq("set by path", t.keys.takeOut, "Y")
+    local sp, sf = dofile("../../shared/settingspanel/tests/run_tests.lua")
+    passes, failures = passes + sp, failures + sf
 end
 
 print(string.format("%d passed, %d failed", passes, failures))

@@ -91,16 +91,15 @@ Essence 8. Crafted bags appear when carried.
 
 ## Next steps
 
-1. **Run the pickup routing, sort and take-out test** in the local world (README). Unknown until run: whether
-   `MoveItem` onto a same-kind stack merges (each move is verified; a mismatch stops the job and is logged).
+1. ~~Run the pickup routing, sort and take-out test~~: passed, steps 2–6 (2026-11-13 and 11-14; README).
 2. The user decides how items get out of bags beyond the take-out key (chests, dropping, trading; tools without
    Frame Mage's hotbar page 2).
 3. The other six bags: tags and tabs like the Tool Belt's, then crafted bags appearing when carried (recipes not
    decided; Phase 4).
 4. Workbench access, then the carry-weight slider (design.md, Phases).
-5. **Settings:** once Frame Mage settles the shared Settings panel's protocol (`mods/framemage/docs/
-   settings-panel-plan.md`), publish Storage Mage's schema and handle requests. Until then settings stay in
-   `Mods\StorageMage\config\settings.lua`.
+5. **Settings:** built (2026-11-14): Storage Mage's tab in the shared Settings panel (`storagemage/panelclient.lua`:
+   pickup routing, the two keys). Add the carry-weight slider and "Empty bags" there when they exist. Not yet
+   checked in game.
 6. **Dedicated server milestone:** UE4SS isn't on the server yet.
 
 ### Open for Frame Mage

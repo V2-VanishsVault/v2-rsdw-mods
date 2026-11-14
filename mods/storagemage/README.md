@@ -142,9 +142,13 @@ torch picked up moved exactly one torch into the belt.
 
 ## Settings
 
+Press **F4** for the Settings panel every Mage mod shares: Storage Mage has a tab in it (pickup routing, the sort and
+take-out keys; `storagemage/panelclient.lua`). Frame Mage isn't needed: without it the panel is drawn plain, with
+Frame Mage in its theme. The panel's code is the repository's `shared/settingspanel/`, shipped as
+`Scripts/settingspanel/`.
+
 `Mods\StorageMage\config\settings.lua` holds only what you change; `settings.defaults.lua` (rewritten every start)
-lists every setting with its default. Later these move into the Settings panel shared by all the Mage mods (a tab
-per mod; plan in `mods/framemage/docs/settings-panel-plan.md`).
+lists every setting with its default.
 
 ## Tests
 
