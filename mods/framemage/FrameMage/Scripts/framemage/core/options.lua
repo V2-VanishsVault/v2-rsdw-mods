@@ -74,8 +74,11 @@ M.SCHEMA = {
 
     -- Celebrations
     { tab = "fun", key = "LevelUpCelebration", type = "toggle", label = "Level-up celebration", setting = "replace.levelUp" },
-    { tab = "fun", key = "Ding", type = "toggle", label = "DING! sound", setting = "ding.enabled" },
-    { tab = "fun", key = "DingVolume", type = "slider", label = "DING! volume", setting = "ding.volume",
+    { tab = "fun", key = "Ding", type = "toggle", label = "Level-up fanfare", setting = "ding.enabled" },
+    { tab = "fun", key = "DingSound", type = "choice", label = "Fanfare", setting = "ding.sound",
+        options = require("framemage.features.ding").ORDER, labels = require("framemage.features.ding").LABELS,
+        tooltip = "The tune that plays as the number lands. Picking one plays it." },
+    { tab = "fun", key = "DingVolume", type = "slider", label = "Fanfare volume", setting = "ding.volume",
         min = 0, max = 1, step = 0.05, percent = true },
     { tab = "fun", type = "button", label = "Preview the celebration", action = "preview" },
 
@@ -102,7 +105,8 @@ M.SCHEMA = {
     { tab = "keys", key = "KeyHide", type = "key", label = "Hide / show element", setting = "keys.hide" },
     { tab = "keys", key = "KeyReset", type = "key", label = "Reset element", setting = "keys.reset" },
     { tab = "keys", key = "KeyGrid", type = "key", label = "Grid on / off", setting = "keys.toggleGrid" },
-    { tab = "keys", key = "KeyDumpApi", type = "key", label = "Developer: dump the game's API", setting = "keys.dumpApi" },
+    { tab = "keys", key = "KeyDumpApi", type = "key", label = "Developer: dump the game's API", setting = "keys.dumpApi",
+        dev = true }, -- (only with the developer features: dev/)
 
     -- Share
     { tab = "share", type = "button", label = "Export this layout", action = "export",
@@ -133,9 +137,14 @@ function M.setPath(t, path, v)
 end
 
 -- The rows of one tab, in order.
+-- Rows marked dev = true belong to developer features (dev/): shown only when those are installed (main.lua sets it).
+M.showDev = false
+
 function M.rowsOf(tab)
     local out = {}
-    for _, r in ipairs(M.SCHEMA) do if r.tab == tab then out[#out + 1] = r end end
+    for _, r in ipairs(M.SCHEMA) do
+        if r.tab == tab and (M.showDev or not r.dev) then out[#out + 1] = r end
+    end
     return out
 end
 
@@ -192,6 +201,7 @@ function M.apply(ctx, row, v)
     elseif row.key == "GridLines" and f.grid then f.grid.setShowLines(v)
     elseif row.key == "Legend" and f.editor then f.editor.keysChanged()
     elseif row.key == "Handles" and f.editor then f.editor.handlesChanged()
+    elseif row.key == "DingSound" and f.ding then f.ding.play(true)
     elseif row.setting:match("^bars%.") and f.bars then f.bars.refresh()
     end
     ctx.saveSettings()

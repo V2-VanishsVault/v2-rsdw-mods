@@ -24,19 +24,12 @@ return {
         equippedGlow = true, -- equipped / held items get a crafting table's animated gold border, not the orange square
     },
 
-    -- DING! on level-up: a synthesized bell (features/ding.lua)
+    -- the level-up fanfare: a short synthesized tune (features/ding.lua)
     ding = {
         enabled = true,
         volume = 0.7, -- 0..1
         delay = 0.1, -- seconds after the celebration starts (as the number lands)
-        note = 88, -- MIDI note of the strike (88 = E6, ~1319 Hz)
-        overtoneRatio = 2.76, -- a bell's inharmonic overtone
-        overtoneGain = 0.35,
-        attackMs = 1,
-        decayMs = 1600, -- the ring-out
-        releaseMs = 300,
-        holdSeconds = 1.6,
-        shimmer = true, -- a little stereo delay
+        sound = "triumph", -- one of features/ding.lua's TUNES: triumph, ascend, quest, sparkle, heroic
         asset = "", -- optional: object path of a sound asset to play instead of the synth
     },
 

@@ -4,9 +4,12 @@
 --   framemage/core/*      shared services: log, fs, serialize, config, sched, events, keys, widgets
 --   framemage/features/*  one module per feature; each exports init(ctx)
 --
+--   dev/                  developer features (dumps, art reload and preview keys), next to Scripts/ in a development install only:
+--                         dev/features.lua lists them. Release zips don't have it, and nothing here needs it.
+--
 -- To add a feature: create framemage/features/<name>.lua exporting `init(ctx)`, then add its name to FEATURES.
 
-local FEATURES = { "layout", "art", "materials", "grid", "editor", "inspector", "share", "ding", "celebrate", "replace",
+local FEATURES = { "layout", "art", "materials", "grid", "editor", "share", "ding", "celebrate", "replace",
     "bars", "survival", "status", "inventory" }
 
 local function modDir()
@@ -81,23 +84,40 @@ sched.now("reload.cleanup", function()
     if not okC then log.warn("reload cleanup failed: %s", tostring(errC)) end
 end)
 
-for _, name in ipairs(FEATURES) do
-  if ctx.settings.features[name] == false then
-    log.info("feature '%s' disabled in settings", name)
-  else
+local function start(name, kind)
+    if ctx.settings.features[name] == false then
+        log.info("%s '%s' disabled in settings", kind, name)
+        return
+    end
     local ok, mod = pcall(require, "framemage.features." .. name)
     if ok then
         local okInit, err = pcall(mod.init, ctx)
         if okInit then
             ctx.features[name] = mod
-            log.info("feature '%s' ready", name)
+            log.info("%s '%s' ready", kind, name)
         else
-            log.error("feature '%s' failed to start: %s", name, tostring(err))
+            log.error("%s '%s' failed to start: %s", kind, name, tostring(err))
         end
     else
-        log.error("feature '%s' failed to load: %s", name, tostring(mod))
+        log.error("%s '%s' failed to load: %s", kind, name, tostring(mod))
     end
-  end
+end
+
+for _, name in ipairs(FEATURES) do start(name, "feature") end
+
+-- Developer features: only in a development install (the dev folder linked in by tools\deploy.ps1 -Link).
+local devList = io.open(DIR .. "dev/features.lua", "r")
+if devList then
+    devList:close()
+    package.path = DIR .. "dev/?.lua;" .. package.path
+    local okL, names = pcall(dofile, DIR .. "dev/features.lua")
+    if okL and type(names) == "table" then
+        ctx.dev = true
+        require("framemage.core.options").showDev = true -- the Settings panel shows developer rows too
+        for _, name in ipairs(names) do start(name, "developer feature") end
+    else
+        log.error("dev/features.lua couldn't be read: %s", tostring(names))
+    end
 end
 
 -- Hotkeys are polled on the game thread (see core/keys.lua for why not RegisterKeyBind).

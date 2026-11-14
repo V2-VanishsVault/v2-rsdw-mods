@@ -37,10 +37,12 @@ step it back or forward; click a key and press the new one to rebind it (Esc can
 Frame Mage can hide one of the game's widgets and show its own in its place. The first is the **level-up popup**:
 instead of the game's circle, firework bursts go off around your new level, which zooms in on a golden glow under
 the skill's name and icon. It says "Max level!" when you've maxed a skill, and the game's level-up sound still plays.
-As the number lands, a **DING!** rings: a bell synthesized live with the game's Modular Synth (a strike at ~1.3 kHz
-with a bell's 2.76x overtone and a 1.6 s ring-out). Volume and on/off are in Settings (Celebrations), and `ding.asset` can point at a
+As the number lands, a short **fanfare** plays, synthesized live with the game's Modular Synth: five original
+tunes of about a second to pick from in Settings (Celebrations): Triumph and Quest (brass), Ascend and Sparkle
+(bells) and Heroic (brass, ending on the flat-seven "victory" cadence). Picking one plays it. Volume and on/off are
+there too, and `ding.asset` can point at a
 sound asset to play instead.
-Turn it off in Settings (Celebrations), and press **Ctrl+F8** or the Preview button there to see it without leveling.
+Turn it off in Settings (Celebrations), and press the Preview button there to see it without leveling.
 
 How it works: the game's popup is detected when it's created or given new data, its level and skill are read from
 the game's own notification data (`NotificationSkillUpData.Level`, `SkillData.Name` / `MaxLevel`), and the popup is
@@ -78,9 +80,15 @@ screen. Key names are Unreal's (`PageDown`, `LeftBracket`, `LeftMouseButton`); c
 | Del | Hide / unhide |
 | Backspace | Reset element |
 | F7 | Next layout profile |
-| Ctrl+F9 | Dump on-screen widgets and texture names to `dumps/` |
+
+**Development install only** (the `dev/` folder, linked in by `tools\deploy.ps1 -Link`; releases don't have these):
+
+| Key | Action |
+|---|---|
+| Ctrl+F9 | Dump on-screen widgets and texture names to `dumps/` (Ctrl+Shift+F9: the same, 5 seconds later) |
 | Ctrl+F10 | Reload art |
 | Ctrl+F8 | Preview the level-up celebration |
+| Numpad + | Dump the game's functions for the classes Frame Mage and Storage Mage drive to `dumps/api.txt` |
 
 ### Controller
 
@@ -117,6 +125,8 @@ A theme is a folder, `Art/themes/<theme>/`:
 Anything a theme doesn't have comes from `elven`, so a new theme can start empty.
 
 ## Reskinning game art
+
+Making a theme needs a development install: the dump and reload keys below are in `dev/`, which releases leave out.
 
 1. In game, open the screens you want to reskin and press **Ctrl+F9** on each. `dumps/textures.txt` builds a
    list of every UI texture with its pixel size, the size it's drawn at, whether it's 9-sliced, and where it
@@ -175,13 +185,16 @@ Remove an entry and reload to restore the original values.
 ```
 FrameMage/Scripts/main.lua               entry; FEATURES list
 FrameMage/Scripts/framemage/core/       log, fs, serialize, config, sched, events, keys, widgets, overlay, names, theme, geometry
-FrameMage/Scripts/framemage/features/   layout, art, materials, grid, editor, inspector, share, celebrate,
-                                          replace, bars  (add new features here)
+FrameMage/Scripts/framemage/features/   layout, art, materials, grid, editor, share, celebrate, replace, bars,
+                                          survival, status, inventory  (add new features here)
 FrameMage/Scripts/framemage/editor/     frame, preview, picker, legend, banner (parts of the layout editor)
+dev/                                      developer features, never in releases: dev/features.lua lists them;
+                                          framemage/features/inspector (dumps), devkeys (reload art, preview),
+                                          apidump (+ framemage/data/api_classes.lua)
 tests/run_tests.lua                       unit tests for the engine-independent code (lua tests/run_tests.lua)
 .luarc.json                               Lua Language Server config (Lua 5.4 + UE4SS globals); static check:
                                           lua-language-server --check=. --checklevel=Warning
-tools/deploy.ps1                          install into the game (-Link: live junctions for development)
+tools/deploy.ps1                          install into the game (-Link: live junctions, dev/ included)
 tools/make_icons.py                       regenerate Frame Mage's own UI art (mouse glyphs, keycap, parchment ribbon)
 ```
 
@@ -192,3 +205,7 @@ Create `FrameMage/Scripts/framemage/features/<name>.lua` returning a table with 
 `widgets`, `config`, `fs` and the other features (`ctx.features.layout`, and so on). Listen to
 `events.on("userwidget", fn)` instead of scanning: a full `FindAllOf("UserWidget")`
 walks 7–10k objects.
+
+A developer-only feature (a dump, a probe, a developer key) goes in `dev/framemage/features/<name>.lua` instead, with
+its name in `dev/features.lua`. Shipping code must never `require` it (the tests check this): a helper both need
+belongs in `FrameMage/Scripts`.

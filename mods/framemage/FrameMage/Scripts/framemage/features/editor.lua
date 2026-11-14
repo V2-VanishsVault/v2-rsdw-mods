@@ -67,8 +67,10 @@ function M.flash(msg)
     local mine = flashSeq
     if not active then
         -- outside the editor (an art reload, a delayed dump, Settings on its own) the banner is the only thing on
-        -- screen to say it (to be switched off, with the developer keys, for distribution builds); the log has it too
+        -- screen to say it: shown in a development install only (dev/, ctx.dev), like the developer keys. The log
+        -- always has it.
         log.info("%s", tostring(msg))
+        if not ctx.dev then return end
         pcall(banner.set, msg)
         ctx.sched.later(2500, "editor.flashClear", function()
             if flashSeq == mine and not active then pcall(banner.set, "") end

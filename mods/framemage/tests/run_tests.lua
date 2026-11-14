@@ -1,6 +1,7 @@
 -- Unit tests for the engine-independent parts. Run from the repo root with Lua 5.4:
 --   lua tests/run_tests.lua
-package.path = "FrameMage/Scripts/?.lua;" .. package.path
+-- dev/ holds the developer features (the API dump): not in releases, tested here too.
+package.path = "FrameMage/Scripts/?.lua;dev/?.lua;" .. package.path
 print = print -- log.lua writes through print
 
 local failures, passes = 0, 0
@@ -507,9 +508,9 @@ do
     check("game widget not ours", not B.isOurs("ProgressBarImage"))
 end
 
--- API dump filter
+-- API dump filter (a developer feature: dev/framemage/features/apidump.lua)
 do
-    local I = require("framemage.features.inspector")
+    local I = require("framemage.features.apidump")
     check("api: hotbar class", I.wantsApi("QuickAccessBarBase"))
     check("api: spell component", I.wantsApi("SpellcastingComponent"))
     check("api: inventory component", I.wantsApi("InventoryComponent"))
@@ -523,6 +524,51 @@ do
     local okL, list = pcall(require, "framemage.data.api_classes")
     check("api: class list loads", okL and type(list) == "table" and #list > 100)
     check("api: class default object skipped", not I.wantsApi("Default__InventoryComponent"))
+end
+
+-- Developer features stay out of releases: dev/features.lua lists them, each loads from dev/, and no shipping file
+-- (FrameMage/Scripts) names a module that only dev/ has.
+do
+    local okL, names = pcall(dofile, "dev/features.lua")
+    check("dev/features.lua lists the developer features", okL and type(names) == "table" and #names > 0, tostring(names))
+    for _, name in ipairs(okL and names or {}) do
+        local okM, m = pcall(require, "framemage.features." .. name)
+        check("developer feature " .. name .. " loads", okM and type(m) == "table" and type(m.init) == "function", tostring(m))
+    end
+    local function lines(cmd)
+        local out, h = {}, io.popen(cmd)
+        if h then for l in h:lines() do out[#out + 1] = l end h:close() end
+        return out
+    end
+    local devModules = {}
+    for _, f in ipairs(lines("git ls-files --cached --others --exclude-standard dev")) do
+        local mod = f:match("^dev/(framemage/.+)%.lua$")
+        if mod then devModules[#devModules + 1] = mod:gsub("/", ".") end
+    end
+    check("dev modules found", #devModules > 0)
+    local shipped = lines("git ls-files --cached --others --exclude-standard FrameMage/Scripts")
+    check("shipping files found", #shipped > 0)
+    for _, f in ipairs(shipped) do
+        if f:match("%.lua$") then
+            local h = io.open(f, "rb")
+            local text = h and h:read("a") or ""
+            if h then h:close() end
+            for _, mod in ipairs(devModules) do
+                check(f .. " doesn't need developer module " .. mod, not text:find('"' .. mod .. '"', 1, true))
+            end
+        end
+    end
+    -- the Settings panel's developer rows show only with dev/ installed
+    local Opt = require("framemage.core.options")
+    local function hasDumpApi()
+        for _, r in ipairs(Opt.rowsOf("keys")) do if r.key == "KeyDumpApi" then return true end end
+        return false
+    end
+    Opt.showDev = false
+    check("release: no developer key row", not hasDumpApi())
+    Opt.showDev = true
+    check("development: developer key row shown", hasDumpApi())
+    Opt.showDev = false
 end
 
 -- hidden-elements panel
@@ -1049,6 +1095,14 @@ near("fully visible mid-way", Ce.timeline(1.5, cs).all, 1)
 check("fading at the end", Ce.timeline(cs.duration - 0.1, cs).all < 0.5)
 check("done after duration", Ce.timeline(cs.duration + 0.01, cs).done)
 
+-- key polling watchdog ------------------------------------------------------------------------------------
+do
+    local K = require("framemage.core.keys")
+    check("keys: never polled is stalled", K.stalled(nil, 10))
+    check("keys: polled just now is fine", not K.stalled(9.99, 10))
+    check("keys: no poll for 4 s is stalled", K.stalled(6, 10))
+end
+
 -- ding --------------------------------------------------------------------------------------------
 local Dg = require("framemage.features.ding")
 local semis, cents = Dg.ratioToSemitones(2.76)
@@ -1060,7 +1114,35 @@ near("full volume is 0 dB", Dg.volumeToDb(1), 0)
 near("half volume is -6 dB", Dg.volumeToDb(0.5), -6.0206)
 eq("silent floor", Dg.volumeToDb(0), -60)
 near("A4 is 440 Hz", Dg.noteToHz(69), 440)
-check("default ding is E6", math.abs(Dg.noteToHz(defaultsT.ding.note) - 1318.5) < 1)
+eq("default fanfare exists", select(2, Dg.tune(defaultsT.ding.sound)), defaultsT.ding.sound)
+eq("unknown fanfare falls back", select(2, Dg.tune("nope")), Dg.DEFAULT)
+eq("five fanfares", #Dg.ORDER, 5)
+do
+    local seen = 0
+    for _ in pairs(Dg.TUNES) do seen = seen + 1 end
+    eq("every fanfare is in the list", seen, #Dg.ORDER)
+end
+for _, name in ipairs(Dg.ORDER) do
+    local t = Dg.TUNES[name]
+    check("fanfare listed and labeled: " .. name, t ~= nil and Dg.LABELS[name] ~= nil)
+    check("fanfare voice exists: " .. name, Dg.VOICES[t.voice] ~= nil)
+    check("fanfare is short (0.8 to 1.6 s): " .. name, Dg.length(t) >= 0.8 and Dg.length(t) <= 1.6, Dg.length(t))
+    local ordered, inRange, maxAtOnce = true, true, 0
+    for i, n in ipairs(t.notes) do
+        if i > 1 and n[1] < t.notes[i - 1][1] then ordered = false end
+        if n[2] < 60 or n[2] > 100 or n[4] < 1 or n[4] > 127 or n[3] <= 0 then inRange = false end
+        local sounding = 0 -- notes still held or releasing when this one starts
+        for _, m in ipairs(t.notes) do
+            if m[1] <= n[1] and m[1] + m[3] + Dg.VOICES[t.voice].releaseMs / 1000 > n[1] then sounding = sounding + 1 end
+        end
+        maxAtOnce = math.max(maxAtOnce, sounding)
+    end
+    check("fanfare notes in time order: " .. name, ordered)
+    check("fanfare notes, lengths and velocities in range: " .. name, inRange)
+    check("fanfare fits the synth's 16 voices: " .. name, maxAtOnce <= 16, maxAtOnce)
+    check("fanfare filter rests above its lowest note: " .. name, Dg.restCutoff(t) > Dg.noteToHz(Dg.lowest(t)))
+end
+eq("lowest note", Dg.lowest({ notes = { { 0, 80, 1, 1 }, { 0.1, 72, 1, 1 } } }), 72)
 
 -- replace -------------------------------------------------------------------------------------------
 local Rp = require("framemage.features.replace")

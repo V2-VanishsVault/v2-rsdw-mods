@@ -1,5 +1,5 @@
 """Lists the game classes the API dump should cover, from the game's type map (.usmap), into
-FrameMage/Scripts/framemage/data/api_classes.lua.
+dev/framemage/data/api_classes.lua (developer only: not in releases).
 
     python tools/gen_api_classes.py [path/to/game.usmap]
 
@@ -19,7 +19,7 @@ PATTERNS = ["QuickAccess", "Inventory", "Loadout", "Equipment", "Spellcasting", 
 SKIP_PREFIXES = ("Default__", "SKEL_", "REINST_", "CUIS_", "GE_")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "..", "FrameMage", "Scripts", "framemage", "data", "api_classes.lua")
+OUT = os.path.join(HERE, "..", "dev", "framemage", "data", "api_classes.lua")  # developer only: not in releases
 GAME = r"C:/Program Files (x86)/Steam/steamapps/common/RSDragonwilds/RSDragonwilds/Binaries/Win64/ue4ss"
 
 

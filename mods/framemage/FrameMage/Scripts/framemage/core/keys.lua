@@ -153,9 +153,12 @@ local function controller(W)
         local gs = StaticFindObject("/Script/Engine.Default__GameplayStatics")
         return gs:GetPlayerController(FindFirstOf("GameInstance"), 0)
     end)
-    if ok and W.valid(p) then pc = p return pc end
-    p = FindFirstOf("PlayerController")
-    if W.valid(p) then pc = p end
+    if not (ok and W.valid(p)) then p = FindFirstOf("PlayerController") end
+    if W.valid(p) then
+        pc = p
+        local okN, n = pcall(function() return p:GetFullName() end)
+        log.info("keys: reading keys from %s", okN and tostring(n) or "the player controller")
+    end
     return pc
 end
 
@@ -293,6 +296,7 @@ local function tick(W, sched)
             end
             if pressed and M.modsMatch(parsed.mods, held) then
                 noteDevice(parsed.key)
+                log.info("keys: %s pressed (%s)", b.name, tostring(b.spec))
                 b.nextRepeat = now + REPEAT_DELAY
                 sched.safe("key:" .. b.name, b.fn)()
             elseif down and b.down and b.repeats and b.nextRepeat and now >= b.nextRepeat
@@ -307,8 +311,39 @@ local function tick(W, sched)
     end
 end
 
+-- Pure: does the poll loop need starting again? (it hasn't run for `stall` seconds). Unit-tested.
+M.STALL_SECONDS = 3
+function M.stalled(lastPoll, now, stall)
+    return lastPoll == nil or now - lastPoll > (stall or M.STALL_SECONDS)
+end
+
+-- The poll loop. Once (2026-11-14) a loop registered at start-up never ran in game: no hotkey worked for the
+-- whole session, with nothing in the log. So a watchdog checks every few seconds and starts a new loop if the
+-- current one has stopped; an old loop that wakes up again sees it's been replaced and does nothing.
+local loopGen, lastPoll = 0, nil
+local function startLoop(ctx, why)
+    loopGen = loopGen + 1
+    local gen, first = loopGen, true
+    ctx.sched.every(16, "keys.poll", function()
+        if gen ~= loopGen then return end
+        lastPoll = os.clock()
+        if first then first = false; log.info("keys: polling (%d hotkeys, %s)", #bindings, why) end
+        tick(ctx.widgets, ctx.sched)
+    end)
+end
+
 function M.start(ctx)
-    ctx.sched.every(16, "keys.poll", function() tick(ctx.widgets, ctx.sched) end)
+    startLoop(ctx, "start")
+    local started = os.clock()
+    ctx.sched.every(2000, "keys.watchdog", function()
+        local now = os.clock()
+        if now - started > M.STALL_SECONDS and M.stalled(lastPoll, now) then
+            log.warn("keys: polling stopped (last poll %s); starting it again",
+                lastPoll and string.format("%.1f s ago", now - lastPoll) or "never")
+            lastPoll = now -- give the new loop time to start
+            startLoop(ctx, "restarted")
+        end
+    end)
     ctx.events.on("worldchanged", M.forgetController)
 end
 

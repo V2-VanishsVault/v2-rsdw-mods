@@ -305,7 +305,6 @@ function M.init(c)
     end)
     c.events.on("themechanged", function() fileCache = {}; M.reload() end)
     if c.settings.art.hookSetters then hookSetters() end
-    c.keys.bind(c.settings.keys.reloadArt, "reloadArt", M.reload)
 end
 
 return M

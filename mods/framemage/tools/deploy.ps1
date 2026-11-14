@@ -1,8 +1,9 @@
 # Installs Frame Mage into the game's UE4SS Mods folder.
 #
 #   powershell -ExecutionPolicy Bypass -File tools\deploy.ps1          copy (what players use)
-#   powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Link    development: junction Scripts\ and Art\
-#                                                                       to this repo, so edits are live
+#   powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Link    development: junction Scripts\, Art\ and
+#                                                                       dev\ (the developer features) to this repo,
+#                                                                       so edits are live
 #   add -GameDir "D:\...\RSDragonwilds" for a non-default install
 #
 # config\, layouts\ and dumps\ are always real folders in the game directory (personal data; never overwritten).
@@ -93,6 +94,23 @@ foreach ($dir in "Scripts", "Art") {
             Write-Host "Art: $added new file(s)"
         }
     }
+}
+
+# Developer features (the API dump) live in ..\dev, never in releases. -Link links them in as Mods\FrameMage\dev;
+# a copy install is what players get, so it has none (an old link is removed).
+$devRepo = (Resolve-Path (Join-Path $PSScriptRoot "..\dev")).Path
+$devGame = Join-Path $dst "dev"
+if ($Link) {
+    if ((Test-Junction $devGame) -and ((Get-Item $devGame -Force).Target -contains $devRepo)) {
+        Write-Host "dev already linked"
+    } else {
+        Remove-Folder $devGame
+        New-Item -ItemType Junction -Path $devGame -Target $devRepo | Out-Null
+        Write-Host "dev -> $devRepo (junction: developer features)"
+    }
+} elseif ((Test-Path $devGame) -or (Test-Junction $devGame)) {
+    Remove-Folder $devGame
+    Write-Host "dev removed (a copy install has no developer features)"
 }
 
 foreach ($dir in "config", "layouts", "dumps", "share") {

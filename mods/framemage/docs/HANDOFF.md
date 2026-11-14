@@ -17,11 +17,17 @@ session.
 
 ## Working rules
 
-- **Tests:** `lua tests/run_tests.lua` (919 pass on 2026-11-13). CI runs them for every push that changes this mod. In PowerShell, refresh PATH first so `lua` is found.
+- **Tests:** `lua tests/run_tests.lua` (1104 pass on 2026-11-14). CI runs them for every push that changes this mod. In PowerShell, refresh PATH first so `lua` is found.
 - **Static check:** `lua-language-server --check FrameMage/Scripts --checklevel=Warning`. About 119 problems is the
   baseline, mostly in the tests.
 - **Deploy:** `tools/deploy.ps1 -Link`. It's already linked (the game's `ue4ss/Mods/FrameMage/Scripts` is a
   junction to this folder's `FrameMage/Scripts`, checked 2026-11-13), so script edits are live after a game restart.
+  Run it once more after 2026-11-14 to link `dev/` too (`Mods/FrameMage/dev`).
+- **Developer features live in `dev/`** (2026-11-14): `inspector` (Ctrl+F9 dumps), `devkeys` (Ctrl+F10 art reload,
+  Ctrl+F8 celebration preview), `apidump` (Numpad +, with `framemage/data/api_classes.lua`), listed in
+  `dev/features.lua`. Releases don't contain `dev/`, and the banner outside the editor shows only with it
+  (`ctx.dev`); Settings rows marked `dev = true` likewise. Shipping code must never `require` a `dev/` module (the
+  tests check it).
 - **Game files:** `C:\Program Files (x86)\Steam\steamapps\common\RSDragonwilds\RSDragonwilds\Binaries\Win64\ue4ss\`
   - log: `UE4SS.log`
   - dumps: `Mods/FrameMage/dumps/` (`widgets.txt`, `textures.txt`, `materials.txt`, `api.txt`)
@@ -43,8 +49,12 @@ session.
   has one (`editor/preview.lua` NOTICES: the queue's collapsed entry, shown with example text and put back), else
   a plain stand-in at the size it last showed at (`editor/samples.lua`, saved in `config/sizes.lua`).
 - Esc: closes the Settings panel, then the editor
-- Ctrl+F9: widget and texture dumps
-- Numpad +: API dump
+- Development install only (`dev/`): Ctrl+F9 widget and texture dumps, Ctrl+F10 art reload, Ctrl+F8 celebration
+  preview, Numpad + API dump
+- 2026-11-14: for one whole session no hotkey worked and the log said nothing; the next start they worked. The
+  poll loop now logs its first run ("keys: polling"), the player controller it reads ("keys: reading keys from"),
+  each press ("keys: edit pressed (F9)"), and a watchdog starts the loop again if it stops ("keys: polling
+  stopped"). If keys die again, that warning (or its absence) says whether the loop or the input was at fault.
 
 ## Key technical facts
 

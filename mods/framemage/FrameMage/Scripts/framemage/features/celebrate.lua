@@ -302,7 +302,7 @@ function M.play(info)
     if #queue > 5 then table.remove(queue, 1) end -- never fall far behind
 end
 
--- Developer preview (no level-up needed).
+-- A preview (no level-up needed): the Settings panel's button; Ctrl+F8 in a development install (dev/).
 function M.preview()
     M.play({ level = math.random(2, 49), skill = "Woodcutting", maxLevel = 50, seed = 7 })
 end
@@ -311,7 +311,6 @@ function M.init(c)
     ctx, log, C = c, c.log, c.settings.celebrate
     c.sched.every(C.frameMs, "celebrate.frame", frame)
     c.events.on("worldchanged", function() ui = nil; playing = nil end)
-    c.keys.bind(c.settings.keys.previewCelebration, "previewCelebration", M.preview)
 end
 
 return M
