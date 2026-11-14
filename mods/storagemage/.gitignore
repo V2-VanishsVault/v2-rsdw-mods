@@ -1,0 +1,10 @@
+StorageMage/dumps/*
+!StorageMage/dumps/.keep
+StorageMage/saves/*
+!StorageMage/saves/.keep
+StorageMage/config/settings.lua
+StorageMage/config/settings.defaults.lua
+*.tmp
+*.bad
+__pycache__/
+dist/

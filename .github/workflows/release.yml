@@ -1,0 +1,43 @@
+# Releases: pushing a tag <mod>-v<version> (framemage-v1.2.0, storagemage-v0.3.0) tests and builds that mod alone and
+# publishes a GitHub release with its zip. Each mod releases on its own; shared/ is built into the mods, never
+# released by itself.
+name: Release
+
+on:
+  push:
+    tags: ['*-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: tag
+        name: Read the tag
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          mod="${tag%%-v*}"
+          version="${tag#*-v}"
+          if [ ! -d "mods/$mod" ]; then echo "::error::tag $tag names no folder mods/$mod"; exit 1; fi
+          echo "mod=$mod" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Install Lua 5.4
+        run: sudo apt-get update -q && sudo apt-get install -yq lua5.4 zip
+      - name: Tests
+        working-directory: mods/${{ steps.tag.outputs.mod }}
+        run: |
+          if [ -f tests/run_tests.lua ]; then lua5.4 tests/run_tests.lua; else echo "no tests yet"; fi
+      - id: build
+        name: Build
+        run: echo "zip=$(bash tools/build.sh '${{ steps.tag.outputs.mod }}' '${{ steps.tag.outputs.version }}')" >> "$GITHUB_OUTPUT"
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=""
+          case "${{ steps.tag.outputs.version }}" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" "${{ steps.build.outputs.zip }}" \
+            --title "${{ steps.tag.outputs.mod }} ${{ steps.tag.outputs.version }}" --generate-notes $prerelease

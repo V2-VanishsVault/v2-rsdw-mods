@@ -1,0 +1,6 @@
+# Each mod has its own .gitignore under mods/<mod>/; these apply everywhere.
+*.tmp
+*.bad
+luac.out
+__pycache__/
+/dist/
