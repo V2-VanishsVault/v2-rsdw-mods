@@ -1049,6 +1049,14 @@ local hooked = false
 local function hookMouse()
     if hooked then return end
     hooked = true
+    -- Only Frame Mage's copy hooks the game's mouse events while Frame Mage runs: Frame Mage's editor hooks the same
+    -- UserWidget:OnMouseButtonDown, and one hook per function is the safer rule (a crash on 2026-11-14 was first
+    -- blamed on a second mod hooking it; it turned out to be something else, but nothing is lost by not hooking
+    -- twice). Any other copy then polls the mouse button instead (the fallback in M.tick).
+    if cfg and cfg.mod ~= "FrameMage" and game.get("FrameMage.lookRev") ~= nil then
+        game.info("Frame Mage is running: clicks are read by polling (no second hook on the game's mouse events)")
+        return
+    end
     local ok, err = pcall(RegisterHook, "/Script/UMG.UserWidget:OnMouseButtonDown", function(self)
         if not (isOpen and host) then return end
         local okS, full = pcall(function() return self:get():GetFullName() end)

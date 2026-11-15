@@ -2,6 +2,6 @@
 -- change to this folder, and set CHECKSUM to what the tests print: they fail while the files and CHECKSUM disagree,
 -- so a changed panel can't ship under an old number.
 return {
-    PANEL_VERSION = 1,
-    CHECKSUM = "dc92b904",
+    PANEL_VERSION = 2,
+    CHECKSUM = "0431dc56",
 }
