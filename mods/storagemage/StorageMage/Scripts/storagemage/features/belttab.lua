@@ -298,6 +298,7 @@ local function check()
     local ok, res = pcall(build, pick.w)
     if not ok then note("build error: %s", tostring(res)) end
     doneFor[id] = ok and res or false -- one try per screen: a failed build isn't repeated every 2 s
+    if doneFor[id] then ctx.events.emit("belttab", pick.w) end
 end
 
 function M.init(c)

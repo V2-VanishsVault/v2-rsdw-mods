@@ -5,6 +5,7 @@
 --   worldchanged()                    level/pawn change: drop every stored widget handle
 --   layoutchanged(key)                an element's layout entry changed
 --   profilechanged(name)
+--   belttab(nav)                      the Tool Belt tab is on this inventory screen (nav: its navigation widget)
 local log = require("storagemage.core.log")
 
 local M = {}

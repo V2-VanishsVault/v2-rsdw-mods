@@ -294,6 +294,27 @@ local function takeOut()
     })
 end
 
+-- ---- drag and drop within the Tool Belt (features/beltdrag.lua watches the drag) ----------------------------
+-- The stack in slot `from` onto slot `to` (both absolute): moved, topped up, or swapped (see routing.dragStep).
+function M.dragMove(from, to)
+    local mode = localMode()
+    local pc = O.localController()
+    if not (mode and pc) then return false end
+    local name = try(function() return pc:GetFullName() end)
+    local belt = L.slotRanges().toolBelt
+    local state = {}
+    enqueue(name, {
+        label = "drag", viaServer = mode == "server",
+        step = function(snap) return R.dragStep(snap, from, to, belt, state) end,
+        done = function(reason)
+            if reason == "full" then ctx.toast.show("That stack is full")
+            elseif reason == "nofree" then ctx.toast.show("No free Tool Belt slot to swap through")
+            elseif reason == "failed" then ctx.toast.show("Couldn't move that (see dumps/moves.txt)") end
+        end,
+    })
+    return true
+end
+
 -- ---- pickup routing (where inventories live) ----------------------------------------------------------------
 local players = {} -- pc full name -> { inv = inventory full name, base = totals of bag items, num = GetNumItems }
 

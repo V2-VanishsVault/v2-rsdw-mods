@@ -9,7 +9,7 @@
 --   dev/                    developer features (dumps, probes), next to Scripts/ in a development install only:
 --                           dev/features.lua lists them. Release zips don't have it, and nothing here needs it.
 
-local FEATURES = { "pages", "tags", "belttab", "bagmoves" }
+local FEATURES = { "pages", "tags", "belttab", "bagmoves", "beltdrag" }
 
 local function modDir()
     local src = (debug.getinfo(1, "S").source or ""):gsub("^@", "")

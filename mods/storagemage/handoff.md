@@ -92,8 +92,8 @@ Essence 8. Crafted bags appear when carried.
 ## Next steps
 
 0. ~~Mace and shield swap~~: it was Frame Mage's HUD copy of the hotbar taking the hotbar keys too (fixed there,
-   2026-11-14). **Next for Storage Mage:** drag and drop inside the Tool Belt (clicking a belt item starts the game's
-   own click-to-move, which switches to the Items page and drops nothing): Storage Mage would do the drag itself.
+   2026-11-14). ~~Drag and drop inside the Tool Belt~~: built and passed in game (2026-11-14, `beltdrag`; see
+   History, "Belt drag"). Not yet: a belt item dropped on the hotbar.
 1. ~~Run the pickup routing, sort and take-out test~~: passed, steps 2–6 (2026-11-13 and 11-14; README).
 2. The user decides how items get out of bags beyond the take-out key (chests, dropping, trading; tools without
    Frame Mage's hotbar page 2).
@@ -213,6 +213,25 @@ Essence 8. Crafted bags appear when carried.
   Host: `InventoryComponent:MoveItem`; joined client: `InventoryController:MoveItemBetweenInventories` or
   `SplitAndPutStack`, 400 ms between steps. Pickup routing polls every 1 s on the host or dedicated server, scans
   only when `GetNumItems` changed. Keys: sort Numpad / (`sortBags`), take out T (`takeOut`).
+
+### Belt drag (2026-11-14)
+
+- **Probe** (dev `beltprobe`, numpad * switches it on in the world): no mouse button ever reaches
+  `IsInputKeyDown` while the inventory is open. `InventoryUIAPI.DragAndDropAPI.CurrentDragPayload` is readable: set
+  to the dragged slot (type 9, its index) the moment a belt drag starts, cleared on release. The switcher jumps to
+  page 0 (Items) at the same moment. Putting it back with `SetActiveWidgetIndex` works mid-drag, but the game's own
+  drop on a belt slot then still does nothing.
+- **Crash:** the probe polling from game start crashed on entering the world four times, always just after the
+  Tool Belt tab was built (no error in either log). Not the second hook on `OnMouseButtonDown`, as first thought:
+  it crashed with no hooks too, and loaded fine once the probe waited for the key. Cause not found; anything that
+  polls the inventory screen starts well after the tab exists.
+- **Built:** `features/beltdrag.lua` starts 5 s after `belttab` emits `belttab`; every 50 ms reads the payload,
+  keeps the belt page up during a belt drag and follows the hovered belt slot; on release, `bagmoves.dragMove` runs
+  `routing.dragStep` (move whole / top up the same kind / swap through a free belt slot), and the Tool Belt tab is
+  clicked through `CategoryButtonGroup:HandleClick(radio value)` so the Items tab doesn't stay lit. User: moves and
+  swaps work, no page flicker, the tab looks right.
+- **RuneScape Bags 2.0.1** (re-read 2026-11-14) did drags on its own page by hooking
+  `HandleInternalDragAndDrop`; its pages reuse the game's slot type 7. On our type 9 page those hooks never fired.
 
 ### Settings panel (2026-11-13)
 

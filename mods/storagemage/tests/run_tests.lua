@@ -299,6 +299,37 @@ do
     eq("take out: empty slot", why, "empty")
     _, why = R.takeOutStep({ [176] = axe(), [8] = bread, [9] = bread, [10] = bread, [11] = bread }, 176, items)
     eq("take out: backpack full", why, "full")
+
+    -- drag and drop within the Tool Belt
+    local function mv(m) return m and (m.from .. ">" .. m.to .. "x" .. m.amount) or "nil" end
+    local st = {}
+    m = R.dragStep({ [176] = axe() }, 176, 178, belt, st)
+    eq("drag onto empty: whole stack", mv(m), "176>178x1")
+    _, why = R.dragStep({ [178] = axe() }, 176, 178, belt, st)
+    eq("drag onto empty: then done", why, "done")
+    st = {}
+    m = R.dragStep({ [176] = torch(4), [177] = torch(8) }, 176, 177, belt, st)
+    eq("drag onto same kind: what fits", mv(m), "176>177x2")
+    _, why = R.dragStep({ [176] = torch(2), [177] = torch(10) }, 176, 177, belt, st)
+    eq("drag onto same kind: once", why, "done")
+    _, why = R.dragStep({ [176] = torch(4), [177] = torch(10) }, 176, 177, belt, {})
+    eq("drag onto a full stack", why, "full")
+    _, why = R.dragStep({ [176] = axe() }, 176, 176, belt, {})
+    eq("drag onto itself", why, "same")
+    _, why = R.dragStep({}, 176, 177, belt, {})
+    eq("drag from an empty slot", why, "empty")
+    -- swap through a free slot: 177 -> 178, 176 -> 177, 178 -> 176
+    st = {}
+    local s = { [176] = axe(), [177] = torch(3) }
+    m = R.dragStep(s, 176, 177, belt, st); eq("swap 1: target out of the way", mv(m), "177>178x3")
+    s = { [176] = axe(), [178] = torch(3) }
+    m = R.dragStep(s, 176, 177, belt, st); eq("swap 2: dragged item in", mv(m), "176>177x1")
+    s = { [177] = axe(), [178] = torch(3) }
+    m = R.dragStep(s, 176, 177, belt, st); eq("swap 3: other item back", mv(m), "178>176x3")
+    s = { [177] = axe(), [176] = torch(3) }
+    _, why = R.dragStep(s, 176, 177, belt, st); eq("swap: done", why, "done")
+    _, why = R.dragStep({ [176] = axe(), [177] = torch(1), [178] = bread, [179] = bread }, 176, 177, belt, {})
+    eq("swap: no free slot", why, "nofree")
 end
 
 -- art: which file to use

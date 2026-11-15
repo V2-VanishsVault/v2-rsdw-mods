@@ -17,8 +17,9 @@ return {
     -- dumps/functions.txt and dumps/drag.txt; Numpad + reports the slot under the mouse. Off since its run
     -- (2026-11-13): it hooks 40 functions.
     -- bagmoves: pickup routing, the sort key and the take-out key (report dumps/moves.txt).
+    -- beltdrag: drag and drop inside the Tool Belt page (needs bagmoves; the moves go to dumps/moves.txt).
     features = { probe = true, pages = true, tags = true, uidump = false, belttab = true, dragprobe = false,
-        bagmoves = true, pagetest = false },
+        bagmoves = true, beltdrag = true, pagetest = false },
 
     -- Items you pick up (or take from a chest, or craft) that belong in a bag go straight into it.
     pickupRouting = true,

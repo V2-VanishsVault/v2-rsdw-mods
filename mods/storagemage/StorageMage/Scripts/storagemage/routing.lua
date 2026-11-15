@@ -114,4 +114,48 @@ function M.takeOutStep(snap, from, items)
     return nil, "full"
 end
 
+-- Drag and drop within one page (the Tool Belt: the game's own drop does nothing there, seen 2026-11-14): the stack
+-- dragged from slot `from` onto slot `to`. Onto an empty slot it moves whole; onto the same kind, as much as fits
+-- joins it; onto another kind the two swap, through a free slot of `spare` (three moves: to -> free, from -> to,
+-- free -> from). `state` is a table the caller keeps for the whole job (start with {}).
+-- Returns move, or nil and "done" / "same" / "empty" / "full" (same kind, no room) / "nofree" (no slot to swap through).
+function M.dragStep(snap, from, to, spare, state)
+    local sw = state.swap
+    if sw then
+        if sw.phase == 1 then
+            local src = snap[from]
+            if not src or snap[to] then return nil, "done" end
+            sw.phase = 2
+            return { from = from, to = to, amount = src.count }
+        elseif sw.phase == 2 then
+            local parked = snap[sw.free]
+            if not parked or snap[from] then return nil, "done" end
+            sw.phase = 3
+            return { from = sw.free, to = from, amount = parked.count }
+        end
+        return nil, "done"
+    end
+    if state.started then return nil, "done" end
+    if from == to then return nil, "same" end
+    local src, dst = snap[from], snap[to]
+    if not src then return nil, "empty" end
+    if not dst then
+        state.started = true
+        return { from = from, to = to, amount = src.count }
+    end
+    if dst.key == src.key then
+        local room = (dst.max or dst.count) - dst.count
+        if room <= 0 then return nil, "full" end
+        state.started = true
+        return { from = from, to = to, amount = math.min(room, src.count) }
+    end
+    local free
+    for i = spare.first, spare.last do
+        if i ~= from and i ~= to and not snap[i] then free = i break end
+    end
+    if not free then return nil, "nofree" end
+    state.started, state.swap = true, { free = free, phase = 1 }
+    return { from = to, to = free, amount = dst.count }
+end
+
 return M
